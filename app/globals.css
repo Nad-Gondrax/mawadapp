@@ -1,0 +1,201 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Mawada Premium — Turquoise, Vert pétrole, Corail */
+  --background: #F8FFFC;
+  --foreground: #102A2A;
+  --card: #FFFFFF;
+  --card-foreground: #102A2A;
+  --popover: #FFFFFF;
+  --popover-foreground: #102A2A;
+  --primary: #009688;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E7F7F4;
+  --secondary-foreground: #006B61;
+  --muted: #E7F7F4;
+  --muted-foreground: #6B7C7C;
+  --accent: #006B61;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF6B6B;
+  --destructive-foreground: #FFFFFF;
+  --border: #D0E8E4;
+  --input: #D0E8E4;
+  --ring: #009688;
+  --chart-1: #009688;
+  --chart-2: #006B61;
+  --chart-3: #2ECC71;
+  --chart-4: #FF6B6B;
+  --chart-5: #E7F7F4;
+  --radius: 1rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #102A2A;
+  --sidebar-primary: #009688;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E7F7F4;
+  --sidebar-accent-foreground: #006B61;
+  --sidebar-border: #D0E8E4;
+  --sidebar-ring: #009688;
+  
+  /* Custom Mawada colors */
+  --mawada-turquoise: #009688;
+  --mawada-petrol: #006B61;
+  --mawada-coral: #FF6B6B;
+  --mawada-mint: #E7F7F4;
+  --mawada-cream: #F8FFFC;
+  --mawada-success: #2ECC71;
+  --mawada-text: #102A2A;
+  --mawada-text-secondary: #6B7C7C;
+}
+
+.dark {
+  --background: #0A1A1A;
+  --foreground: #F8FFFC;
+  --card: #102A2A;
+  --card-foreground: #F8FFFC;
+  --popover: #102A2A;
+  --popover-foreground: #F8FFFC;
+  --primary: #00B5A3;
+  --primary-foreground: #0A1A1A;
+  --secondary: #1A3A3A;
+  --secondary-foreground: #E7F7F4;
+  --muted: #1A3A3A;
+  --muted-foreground: #8B9C9C;
+  --accent: #00B5A3;
+  --accent-foreground: #0A1A1A;
+  --destructive: #FF6B6B;
+  --destructive-foreground: #FFFFFF;
+  --border: #2A4A4A;
+  --input: #2A4A4A;
+  --ring: #00B5A3;
+  --sidebar: #0A1A1A;
+  --sidebar-foreground: #F8FFFC;
+  --sidebar-primary: #00B5A3;
+  --sidebar-primary-foreground: #0A1A1A;
+  --sidebar-accent: #1A3A3A;
+  --sidebar-accent-foreground: #E7F7F4;
+  --sidebar-border: #2A4A4A;
+  --sidebar-ring: #00B5A3;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-serif: var(--font-playfair), 'Playfair Display', serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Mawada custom colors for Tailwind */
+  --color-mawada-turquoise: var(--mawada-turquoise);
+  --color-mawada-petrol: var(--mawada-petrol);
+  --color-mawada-coral: var(--mawada-coral);
+  --color-mawada-mint: var(--mawada-mint);
+  --color-mawada-cream: var(--mawada-cream);
+  --color-mawada-success: var(--mawada-success);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Gradient utilities */
+.gradient-mawada {
+  background: linear-gradient(135deg, #009688 0%, #006B61 100%);
+}
+
+.gradient-mawada-soft {
+  background: linear-gradient(135deg, #E7F7F4 0%, #F8FFFC 100%);
+}
+
+.gradient-coral {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+}
+
+/* Premium shadow */
+.shadow-premium {
+  box-shadow: 0 4px 20px -2px rgba(0, 107, 97, 0.08), 
+              0 2px 8px -2px rgba(0, 107, 97, 0.04);
+}
+
+.shadow-premium-lg {
+  box-shadow: 0 8px 40px -4px rgba(0, 107, 97, 0.12), 
+              0 4px 16px -4px rgba(0, 107, 97, 0.08);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area for mobile bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Ensure bottom nav is always visible */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
