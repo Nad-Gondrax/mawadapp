@@ -6,7 +6,27 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Heart, MessageCircle, User, Shield, Compass, LogOut } from "lucide-react"
-import { getMutualMatches, getMyProfile, signOut } from "@/lib/supabase-queries"
+import { getConversationThreads, getIncomingLikes, getMutualMatches, getMyProfile, signOut } from "@/lib/supabase-queries"
+
+type MatchActivity = {
+  conversation?: {
+    mahram_status?: "pending" | "approved" | "refused"
+  } | null
+}
+
+type ConversationThread = Awaited<ReturnType<typeof getConversationThreads>>[number]
+
+function getUnreadMessagesCount(threads: ConversationThread[]) {
+  return threads.filter(thread => {
+    if (!thread.lastIncomingMessage) return false
+
+    const lastReadAt = window.localStorage.getItem(
+      `mawada-conversation-read:${thread.currentUserId}:${thread.conversation.id}`,
+    )
+
+    return !lastReadAt || new Date(thread.lastIncomingMessage.created_at).getTime() > new Date(lastReadAt).getTime()
+  }).length
+}
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Compass, label: "Découvrir" },
@@ -22,28 +42,47 @@ const SIDEBAR_EXTRA = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [matchesCount, setMatchesCount] = useState(0)
+  const [matchActivityCount, setMatchActivityCount] = useState(0)
+  const [messagesActivityCount, setMessagesActivityCount] = useState(0)
   const [showMahramLink, setShowMahramLink] = useState(false)
 
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([getMutualMatches(), getMyProfile()])
-      .then(([matches, profile]) => {
-        if (!cancelled) {
-          setMatchesCount(matches.length)
-          setShowMahramLink(profile?.genre === "femme")
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMatchesCount(0)
-          setShowMahramLink(false)
-        }
-      })
+    const loadActivity = () => {
+      Promise.all([getIncomingLikes(), getMutualMatches(), getConversationThreads(), getMyProfile()])
+        .then(([incomingLikes, mutualMatches, conversationThreads, profile]) => {
+          if (!cancelled) {
+            const pendingMatches = (mutualMatches as MatchActivity[])
+              .filter(match => match.conversation?.mahram_status !== "approved")
+            setMatchActivityCount(incomingLikes.length + pendingMatches.length)
+            setMessagesActivityCount(getUnreadMessagesCount(conversationThreads))
+            setShowMahramLink(profile?.genre === "femme")
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMatchActivityCount(0)
+            setMessagesActivityCount(0)
+            setShowMahramLink(false)
+          }
+        })
+    }
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "hidden") loadActivity()
+    }
+
+    loadActivity()
+    window.addEventListener("focus", refreshWhenVisible)
+    document.addEventListener("visibilitychange", refreshWhenVisible)
+    const intervalId = window.setInterval(refreshWhenVisible, 15000)
 
     return () => {
       cancelled = true
+      window.removeEventListener("focus", refreshWhenVisible)
+      document.removeEventListener("visibilitychange", refreshWhenVisible)
+      window.clearInterval(intervalId)
     }
   }, [])
 
@@ -78,9 +117,14 @@ export function DashboardSidebar() {
             >
               <Icon className={`w-5 h-5 ${active ? "" : ""}`} />
               {label}
-              {label === "Matchs" && matchesCount > 0 && (
+              {label === "Matchs" && matchActivityCount > 0 && (
                 <span className="ml-auto bg-[#FF6B6B] text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {matchesCount}
+                  {matchActivityCount}
+                </span>
+              )}
+              {label === "Messages" && messagesActivityCount > 0 && (
+                <span className="ml-auto bg-[#FF6B6B] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {messagesActivityCount}
                 </span>
               )}
             </Link>
@@ -140,21 +184,44 @@ export function DashboardSidebar() {
 export function DashboardBottomNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const [matchesCount, setMatchesCount] = useState(0)
+  const [matchActivityCount, setMatchActivityCount] = useState(0)
+  const [messagesActivityCount, setMessagesActivityCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
 
-    getMutualMatches()
-      .then(matches => {
-        if (!cancelled) setMatchesCount(matches.length)
-      })
-      .catch(() => {
-        if (!cancelled) setMatchesCount(0)
-      })
+    const loadActivity = () => {
+      Promise.all([getIncomingLikes(), getMutualMatches(), getConversationThreads()])
+        .then(([incomingLikes, mutualMatches, conversationThreads]) => {
+          if (!cancelled) {
+            const pendingMatches = (mutualMatches as MatchActivity[])
+              .filter(match => match.conversation?.mahram_status !== "approved")
+            setMatchActivityCount(incomingLikes.length + pendingMatches.length)
+            setMessagesActivityCount(getUnreadMessagesCount(conversationThreads))
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMatchActivityCount(0)
+            setMessagesActivityCount(0)
+          }
+        })
+    }
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== "hidden") loadActivity()
+    }
+
+    loadActivity()
+    window.addEventListener("focus", refreshWhenVisible)
+    document.addEventListener("visibilitychange", refreshWhenVisible)
+    const intervalId = window.setInterval(refreshWhenVisible, 15000)
 
     return () => {
       cancelled = true
+      window.removeEventListener("focus", refreshWhenVisible)
+      document.removeEventListener("visibilitychange", refreshWhenVisible)
+      window.clearInterval(intervalId)
     }
   }, [])
 
@@ -184,7 +251,10 @@ export function DashboardBottomNav() {
               <span className={`text-[10px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>
                 {label}
               </span>
-              {label === "Matchs" && matchesCount > 0 && (
+              {label === "Matchs" && matchActivityCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#FF6B6B] rounded-full" />
+              )}
+              {label === "Messages" && messagesActivityCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-[#FF6B6B] rounded-full" />
               )}
             </Link>

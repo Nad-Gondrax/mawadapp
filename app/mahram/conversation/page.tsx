@@ -166,9 +166,11 @@ function MahramConversationContent() {
           {[protectedProfile, matchProfile].map(profile => (
             <div key={profile.id} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-secondary overflow-hidden shrink-0">
-                {profile.photo && (
-                  <img src={profile.photo} alt={profile.prenom || "Profil"} className="w-full h-full object-cover" />
-                )}
+                <img
+                  src={profile.photo || (profile.genre === "femme" ? "/profil_femme.png" : "/profil_homme.png")}
+                  alt={profile.prenom || "Profil"}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-foreground truncate">{profile.prenom || "Profil"}</p>

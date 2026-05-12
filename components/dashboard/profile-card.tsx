@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { MapPin, Globe, BookOpen, Heart, X, CheckCircle } from "lucide-react"
+import { MapPin, Globe, BookOpen, Heart, X } from "lucide-react"
 import type { UserProfile } from "@/lib/types"
 import { NIVEAUX_PRATIQUE_LABELS, PROJET_MARIAGE_LABELS } from "@/lib/mock-data"
 import { addLike } from "@/lib/supabase-queries"
@@ -101,9 +101,7 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
   const [matchWarning, setMatchWarning] = useState<string | null>(null)
   const router = useRouter()
 
-  const mahramValidated = profile.mahram?.statut === "valide"
   const photoHidden = Boolean(profile.photoBlurred) && !photoAccessApproved
-  const shouldBlurPhoto = !mahramValidated || photoHidden
 
   useEffect(() => {
     setLiked(initiallyLiked)
@@ -149,25 +147,16 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
           <img
             src={profile.photo || (profile.genre === "femme" ? "/profil_femme.png" : "/profil_homme.png")}
             alt={`Profil de ${profile.prenom}`}
-            className={`w-full h-full object-cover transition-all duration-500 ${shouldBlurPhoto ? "blur-md scale-105" : ""}`}
+            className={`w-full h-full object-cover transition-all duration-500 ${photoHidden ? "blur-md scale-105" : ""}`}
           />
           
-          {shouldBlurPhoto && (
+          {photoHidden && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#102A2A]/10">
               <div className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-2">
                 <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                 <span className="text-sm font-medium text-foreground">
-                  {!mahramValidated ? "En attente du mahram" : "Photo privée"}
+                  Photo privée
                 </span>
-              </div>
-            </div>
-          )}
-          
-          {mahramValidated && (
-            <div className="absolute top-3 right-3">
-              <div className="bg-[#2ECC71] text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Vérifié
               </div>
             </div>
           )}

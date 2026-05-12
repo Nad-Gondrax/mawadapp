@@ -36,9 +36,7 @@ export type DbPublicProfile = {
 }
 
 export function mapDbProfile(profile: DbPublicProfile): UserProfile {
-  const mahramStatut = profile.genre === "femme"
-    ? profile.mahram_statut || "en_attente"
-    : "valide"
+  const mahramStatut = profile.mahram_statut || "valide"
 
   return {
     id: profile.id,

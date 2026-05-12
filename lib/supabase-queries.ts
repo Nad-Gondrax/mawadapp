@@ -182,6 +182,49 @@ export async function getLikedProfileIds() {
   return (data || []).map(like => like.to_user_id as string)
 }
 
+export async function getIncomingLikes() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non authentifié')
+
+  const { data: likes, error: likesError } = await supabase
+    .from('likes')
+    .select('from_user_id, to_user_id, created_at')
+    .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
+    .order('created_at', { ascending: false })
+
+  if (likesError) throw likesError
+
+  const sent = new Set(
+    (likes || [])
+      .filter(like => like.from_user_id === user.id)
+      .map(like => like.to_user_id as string),
+  )
+
+  const incoming = (likes || [])
+    .filter(like => like.to_user_id === user.id && !sent.has(like.from_user_id as string))
+    .map(like => ({
+      profileId: like.from_user_id as string,
+      date: like.created_at as string,
+    }))
+
+  const profileIds = incoming.map(like => like.profileId)
+  if (profileIds.length === 0) return []
+
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('profiles_public')
+    .select(PROFILE_PUBLIC_SELECT)
+    .in('id', profileIds)
+
+  if (profilesError) throw profilesError
+  const profiles = (profilesData || []) as unknown as DbPublicProfile[]
+
+  return incoming.map(like => {
+    const profile = profiles.find(item => item.id === like.profileId)
+    return { ...like, profile }
+  }).filter((like): like is typeof like & { profile: DbPublicProfile } => Boolean(like.profile))
+}
+
 export async function ensureConversation(otherUserId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -348,12 +391,16 @@ export async function getConversationThreads() {
   return conversations.map(conversation => {
     const partnerId = conversation.user_1_id === user.id ? conversation.user_2_id : conversation.user_1_id
     const partner = profiles.find(profile => profile.id === partnerId)
-    const lastMessage = (messages || []).find(message => message.conversation_id === conversation.id)
+    const conversationMessages = (messages || []).filter(message => message.conversation_id === conversation.id)
+    const lastMessage = conversationMessages[0]
+    const lastIncomingMessage = conversationMessages.find(message => message.sender_id !== user.id)
 
     return {
       conversation,
       partner,
       lastMessage,
+      lastIncomingMessage,
+      currentUserId: user.id,
     }
   }).filter((thread): thread is typeof thread & { partner: DbPublicProfile } => Boolean(thread.partner))
 }

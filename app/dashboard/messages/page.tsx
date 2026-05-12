@@ -12,6 +12,24 @@ function formatTime(value?: string) {
   return new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
 }
 
+function isThreadUnread(thread: ConversationThread) {
+  if (!thread.lastIncomingMessage) return false
+
+  const lastReadAt = window.localStorage.getItem(
+    `mawada-conversation-read:${thread.currentUserId}:${thread.conversation.id}`,
+  )
+
+  return !lastReadAt || new Date(thread.lastIncomingMessage.created_at).getTime() > new Date(lastReadAt).getTime()
+}
+
+function markThreadRead(thread: ConversationThread) {
+  const readAt = thread.lastMessage?.created_at || thread.conversation.updated_at
+  window.localStorage.setItem(
+    `mawada-conversation-read:${thread.currentUserId}:${thread.conversation.id}`,
+    readAt,
+  )
+}
+
 export default function MessagesPage() {
   const router = useRouter()
   const [threads, setThreads] = useState<ConversationThread[]>([])
@@ -86,16 +104,23 @@ export default function MessagesPage() {
           </div>
         )}
 
-        {!loading && !error && threads.map(({ conversation, partner, lastMessage }) => {
+        {!loading && !error && threads.map(thread => {
+          const { conversation, partner, lastMessage } = thread
           const approved = conversation.mahram_status === "approved"
           const refused = conversation.mahram_status === "refused"
           const photoHidden = Boolean(partner.photo_blurred) && !photoAccessProfileIds.includes(partner.id)
+          const unread = isThreadUnread(thread)
 
           return (
             <button
               key={conversation.id}
-              onClick={() => router.push(`/chat/${conversation.id}`)}
-              className="w-full bg-card rounded-2xl border border-border p-4 flex items-center gap-4 hover:shadow-md transition-shadow text-left"
+              onClick={() => {
+                markThreadRead(thread)
+                router.push(`/chat/${conversation.id}`)
+              }}
+              className={`relative w-full bg-card rounded-2xl border p-4 flex items-center gap-4 hover:shadow-md transition-shadow text-left ${
+                unread ? "border-[#FF6B6B]/40 bg-[#FF6B6B]/5" : "border-border"
+              }`}
             >
               <div className="relative">
                 <div className="w-14 h-14 rounded-full bg-secondary overflow-hidden">
@@ -113,12 +138,17 @@ export default function MessagesPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">{partner.prenom}</span>
+                  <span className="flex items-center gap-2 font-semibold text-foreground">
+                    {partner.prenom}
+                    {unread && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#FF6B6B]" aria-label="Message non lu" />
+                    )}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {formatTime(lastMessage?.created_at || conversation.updated_at)}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate mt-0.5">
+                <p className={`text-sm truncate mt-0.5 ${unread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                   {lastMessage?.content || "Match créé. Demande envoyée au Mahram."}
                 </p>
                 <div className="flex items-center gap-1 mt-1">

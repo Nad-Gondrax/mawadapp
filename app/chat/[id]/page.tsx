@@ -57,6 +57,10 @@ export default function ChatPage() {
         setDetails(conversationDetails)
         setMessages(conversationMessages)
         setPhotoAccessApproved(photoStatuses.get(conversationDetails.partner.id) === "approved")
+        window.localStorage.setItem(
+          `mawada-conversation-read:${conversationDetails.currentUserId}:${conversationId}`,
+          conversationMessages.at(-1)?.created_at || conversationDetails.conversation.updated_at,
+        )
       } catch (error) {
         console.error(error)
         if (active) {

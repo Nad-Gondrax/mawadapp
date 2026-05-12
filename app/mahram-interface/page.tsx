@@ -224,9 +224,11 @@ function MahramInterfaceContent() {
               <div className="p-5 space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-secondary overflow-hidden">
-                    {profile.photo && (
-                      <img src={profile.photo} alt={profile.prenom} className="w-full h-full object-cover" />
-                    )}
+                    <img
+                      src={profile.photo || (profile.genre === "femme" ? "/profil_femme.png" : "/profil_homme.png")}
+                      alt={profile.prenom}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div>
                     <h3 className="font-serif font-bold text-lg text-foreground">{profile.prenom}</h3>
