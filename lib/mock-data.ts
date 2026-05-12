@@ -1,6 +1,6 @@
 import type { UserProfile, Conversation } from "./types"
 
-export const MOCK_PROFILES: UserProfile[] = [
+export const MOCK_PROFILES = [
   {
     id: "u1",
     prenom: "Youssef",
@@ -11,7 +11,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_homme.png",
     traits: ["Travailleur.euse", "Sincère", "Respectueux.se", "Loyal.e", "Patient.e", "Ambitieux.se", "Responsable", "Chaleureux.se"],
     taille: 178,
-    styleVestimentaire: "Casual",
+    styleVestimentaire: ["Casual"],
     profession: "Ingénieur informatique",
     niveauEtudes: "master",
     niveauPratique: "tres_pratiquant",
@@ -39,7 +39,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_homme.png",
     traits: ["Calme", "Intelligent.e", "Responsable", "Sage", "Stable", "Fiable", "Spirituel.le", "Patient.e"],
     taille: 182,
-    styleVestimentaire: "Qamis/Abaya",
+    styleVestimentaire: ["Qamis/Abaya"],
     profession: "Médecin",
     niveauEtudes: "doctorat",
     niveauPratique: "tres_pratiquant",
@@ -67,7 +67,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_homme.png",
     traits: ["Joyeux.se", "Dynamique", "Sociable", "Drôle", "Optimiste", "Spontané.e"],
     taille: 175,
-    styleVestimentaire: "Casual",
+    styleVestimentaire: ["Casual"],
     profession: "Commercial",
     niveauEtudes: "licence",
     niveauPratique: "pratiquant",
@@ -95,7 +95,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_femme.png",
     traits: ["Attentionné.e", "Sincère", "Doux.ce", "Affectueux.se", "Sage", "Cultivé.e", "Romantique", "Fidèle"],
     taille: 165,
-    styleVestimentaire: "Qamis/Abaya",
+    styleVestimentaire: ["Qamis/Abaya"],
     profession: "Enseignante",
     niveauEtudes: "master",
     niveauPratique: "tres_pratiquant",
@@ -123,7 +123,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_femme.png",
     traits: ["Indépendant.e", "Ambitieux.se", "Intelligent.e", "Moderne", "Déterminé.e", "Responsable", "Charismatique"],
     taille: 162,
-    styleVestimentaire: "Chic",
+    styleVestimentaire: ["Chic"],
     profession: "Avocate",
     niveauEtudes: "master",
     niveauPratique: "pratiquant",
@@ -151,7 +151,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_femme.png",
     traits: ["Créatif.ve", "Joyeux.se", "Spontané.e", "Affectueux.se", "Sociable", "Chaleureux.se"],
     taille: 158,
-    styleVestimentaire: "Casual",
+    styleVestimentaire: ["Casual"],
     profession: "Designer graphique",
     niveauEtudes: "licence",
     niveauPratique: "guid_allah",
@@ -179,7 +179,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_homme.png",
     traits: ["Stable", "Fiable", "Patient.e", "Tolérant.e", "Chaleureux.se", "Responsable"],
     taille: 180,
-    styleVestimentaire: "Affaires",
+    styleVestimentaire: ["Affaires"],
     profession: "Entrepreneur",
     niveauEtudes: "licence",
     niveauPratique: "pratiquant",
@@ -207,7 +207,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     photo: "/profil_femme.png",
     traits: ["Spirituel.le", "Sage", "Paisible", "Ordonné.e", "Cultivé.e", "Perfectionniste", "Sensible"],
     taille: 168,
-    styleVestimentaire: "Qamis/Abaya",
+    styleVestimentaire: ["Qamis/Abaya"],
     profession: "Médecin",
     niveauEtudes: "doctorat",
     niveauPratique: "tres_pratiquant",
@@ -225,9 +225,9 @@ export const MOCK_PROFILES: UserProfile[] = [
     likes: [],
     matches: [],
   },
-]
+] as unknown as UserProfile[]
 
-export const CURRENT_USER: UserProfile = {
+export const CURRENT_USER = {
   id: "me",
   prenom: "Utilisateur",
   age: 27,
@@ -237,7 +237,7 @@ export const CURRENT_USER: UserProfile = {
     photo: "/profil_homme.png",
   traits: ["Sincère", "Travailleur.euse", "Responsable", "Loyal.e"],
   taille: 176,
-  styleVestimentaire: "Casual",
+  styleVestimentaire: ["Casual"],
   profession: "Développeur",
   niveauEtudes: "master",
   niveauPratique: "pratiquant",
@@ -254,7 +254,7 @@ export const CURRENT_USER: UserProfile = {
   dateInscription: "2025-01-01",
   likes: [],
   matches: [],
-}
+} as unknown as UserProfile
 
 export const MOCK_CONVERSATIONS: Conversation[] = [
   {

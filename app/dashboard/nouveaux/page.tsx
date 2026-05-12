@@ -1,26 +1,109 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
+import { Loader2, Sparkles } from "lucide-react"
 import { ProfileCard } from "@/components/dashboard/profile-card"
-import { MOCK_PROFILES, CURRENT_USER } from "@/lib/mock-data"
+import { discoverProfiles, getLikedProfileIds, getMyProfile, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
+import { mapDbProfile, type DbPublicProfile } from "@/lib/profile-mappers"
+import type { UserProfile } from "@/lib/types"
 
 export default function NouveauxPage() {
-  // Show newest profiles (sorted by date desc) of opposite gender
-  const profiles = [...MOCK_PROFILES]
-    .filter(p => p.genre !== CURRENT_USER.genre)
-    .sort((a, b) => new Date(b.dateInscription).getTime() - new Date(a.dateInscription).getTime())
+  const [currentProfile, setCurrentProfile] = useState<DbPublicProfile | null>(null)
+  const [profiles, setProfiles] = useState<UserProfile[]>([])
+  const [likedProfileIds, setLikedProfileIds] = useState<string[]>([])
+  const [photoAccessProfileIds, setPhotoAccessProfileIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProfiles() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const [myProfile, discovered, likedIds] = await Promise.all([
+          getMyProfile(),
+          discoverProfiles(),
+          getLikedProfileIds(),
+        ])
+
+        if (cancelled) return
+        const discoveredProfiles = discovered as unknown as DbPublicProfile[]
+        const photoStatuses = await getPhotoUnblurStatuses(discoveredProfiles.map(profile => profile.id))
+        if (cancelled) return
+
+        setCurrentProfile(myProfile as DbPublicProfile)
+        setProfiles(discoveredProfiles.map(mapDbProfile))
+        setLikedProfileIds(likedIds)
+        setPhotoAccessProfileIds(
+          discoveredProfiles
+            .filter(profile => photoStatuses.get(profile.id) === "approved")
+            .map(profile => profile.id),
+        )
+      } catch {
+        if (!cancelled) setError("Impossible de charger les nouveaux profils.")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadProfiles()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const currentGenre = currentProfile?.genre
+  const newestProfiles = useMemo(() => {
+    return profiles
+      .filter(profile => !currentGenre || profile.genre !== currentGenre)
+      .sort((a, b) => new Date(b.dateInscription).getTime() - new Date(a.dateInscription).getTime())
+  }, [currentGenre, profiles])
 
   return (
     <div className="max-w-4xl mx-auto">
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border px-4 py-3">
         <h1 className="font-serif text-xl font-bold text-foreground">Nouveaux profils</h1>
-        <p className="text-muted-foreground text-xs">{profiles.length} nouveaux membres récemment inscrits</p>
+        <p className="text-muted-foreground text-xs">{newestProfiles.length} nouveaux membres récemment inscrits</p>
       </header>
+
       <div className="p-4">
-        <div className="grid sm:grid-cols-2 gap-4">
-          {profiles.map(p => (
-            <ProfileCard key={p.id} profile={p} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+            <p className="text-sm">Chargement des nouveaux profils...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-[#E7F7F4] rounded-full flex items-center justify-center mx-auto mb-5">
+              <Sparkles className="w-10 h-10 text-primary" />
+            </div>
+            <h3 className="font-serif font-bold text-xl text-foreground mb-2">Chargement impossible</h3>
+            <p className="text-muted-foreground max-w-sm mx-auto">{error}</p>
+          </div>
+        ) : newestProfiles.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {newestProfiles.map(profile => (
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                initiallyLiked={likedProfileIds.includes(profile.id)}
+                photoAccessApproved={photoAccessProfileIds.includes(profile.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-[#E7F7F4] rounded-full flex items-center justify-center mx-auto mb-5">
+              <Sparkles className="w-10 h-10 text-primary" />
+            </div>
+            <h3 className="font-serif font-bold text-xl text-foreground mb-2">Aucun nouveau profil</h3>
+            <p className="text-muted-foreground max-w-sm mx-auto">Les nouveaux profils apparaîtront ici.</p>
+          </div>
+        )}
       </div>
     </div>
   )

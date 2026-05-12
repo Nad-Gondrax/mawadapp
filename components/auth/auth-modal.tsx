@@ -6,6 +6,7 @@ import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getUserFacingError } from "@/lib/user-facing-errors"
 
 interface AuthModalProps {
   open: boolean
@@ -41,7 +42,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
     })
 
     if (error) {
-      setError("Une erreur est survenue. Verifiez votre adresse email.")
+      setError(getUserFacingError(error, "passwordReset"))
     } else {
       setSuccess("Un email de reinitialisation vous a ete envoye. Verifiez votre boite mail.")
     }
@@ -55,20 +56,6 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
     setSuccess(null)
     const supabase = createClient()
 
-    // Fonction pour traduire les erreurs Supabase en français
-    const translateError = (msg: string): string => {
-      const translations: Record<string, string> = {
-        "Password should be at least 6 characters": "Le mot de passe doit contenir au moins 6 caractères.",
-        "Password should be at least 6 characters.": "Le mot de passe doit contenir au moins 6 caractères.",
-        "User already registered": "Cet email est déjà utilisé.",
-        "Invalid login credentials": "Email ou mot de passe incorrect.",
-        "Email not confirmed": "Veuillez confirmer votre email avant de vous connecter.",
-        "Invalid email": "Adresse email invalide.",
-        "Signup requires a valid password": "Un mot de passe valide est requis.",
-      }
-      return translations[msg] || msg
-    }
-
     if (mode === "register") {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -80,7 +67,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
         },
       })
       if (error) {
-        setError(translateError(error.message))
+        setError(getUserFacingError(error, "signup"))
       } else if (data.session) {
         // Confirmation email désactivée : session créée directement
         onClose()
@@ -93,7 +80,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setError(translateError(error.message))
+        setError(getUserFacingError(error, "login"))
       } else {
         onClose()
         router.push("/dashboard")
@@ -114,7 +101,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
           `${window.location.origin}/auth/callback`,
       },
     })
-    if (error) setError(error.message)
+    if (error) setError(getUserFacingError(error, "login"))
     setLoading(false)
   }
 

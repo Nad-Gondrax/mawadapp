@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Users, Shield, TrendingUp, ChevronLeft,
-  Check, X, UserCheck, Ban, BarChart3,
+  Check, UserCheck, Ban, BarChart3,
   RefreshCw, ChevronLeft as Prev, ChevronRight as Next,
-  AlertTriangle, UserX, Clock, Loader2
+  AlertTriangle, Clock, Loader2, Mail, FileWarning
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -15,7 +15,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AdminTab = "stats" | "users" | "mahrams"
+type AdminTab = "stats" | "users" | "mahrams" | "reports"
 
 interface Stats {
   totalUsers: number
@@ -24,6 +24,9 @@ interface Stats {
   femmes: number
   mahramEnAttente: number
   mahramValide: number
+  demandesMahramEnAttente: number
+  demandesMahramValidees: number
+  signalementsOuverts: number
   nouveauxSemaine: number
   nouveauxAujourdhui: number
   inscriptionsParJour: { jour: string; total: number }[]
@@ -40,7 +43,40 @@ interface AdminUser {
   statut: string
   onboarding_complete: boolean
   mahram_statut: string
+  mahram_email?: string | null
   created_at: string
+}
+
+interface AdminProfileSummary {
+  id: string
+  prenom: string | null
+  age: number | null
+  genre: string | null
+  ville: string | null
+  statut: string | null
+}
+
+interface AdminMahramRequest {
+  id: string
+  conversation_id: string
+  access_token?: string | null
+  mahram_email?: string | null
+  mahram_name?: string | null
+  status: "pending" | "approved" | "refused"
+  email_status?: "pending" | "sent" | "failed" | null
+  created_at?: string | null
+  protectedProfile: AdminProfileSummary | null
+  matchProfile: AdminProfileSummary | null
+}
+
+interface AdminReport {
+  id: string
+  reason: string
+  details: string | null
+  status: "open" | "reviewed" | "dismissed" | "actioned"
+  created_at: string
+  reporter: AdminProfileSummary | null
+  reportedUser: AdminProfileSummary | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -65,6 +101,22 @@ const MAHRAM_CONFIG: Record<string, { label: string; cls: string }> = {
   en_attente: { label: "En attente", cls: "bg-amber-100 text-amber-700" },
   valide:     { label: "Validé",     cls: "bg-emerald-100 text-emerald-700" },
   refuse:     { label: "Refusé",     cls: "bg-red-100 text-red-700" },
+  pending:    { label: "En attente", cls: "bg-amber-100 text-amber-700" },
+  approved:   { label: "Approuvé",   cls: "bg-emerald-100 text-emerald-700" },
+  refused:    { label: "Refusé",     cls: "bg-red-100 text-red-700" },
+}
+
+const EMAIL_STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  pending: { label: "Email à envoyer", cls: "bg-amber-100 text-amber-700" },
+  sent:    { label: "Email envoyé",    cls: "bg-emerald-100 text-emerald-700" },
+  failed:  { label: "Email échoué",    cls: "bg-red-100 text-red-700" },
+}
+
+const REPORT_STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  open:      { label: "Ouvert",   cls: "bg-red-100 text-red-700" },
+  reviewed:  { label: "Vu",       cls: "bg-blue-100 text-blue-700" },
+  dismissed: { label: "Classé",   cls: "bg-secondary text-muted-foreground" },
+  actioned:  { label: "Actionné", cls: "bg-emerald-100 text-emerald-700" },
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -116,6 +168,14 @@ export default function AdminPage() {
   const [page, setPage] = useState(1)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
+  const [mahramRequests, setMahramRequests] = useState<AdminMahramRequest[]>([])
+  const [mahramRequestsLoading, setMahramRequestsLoading] = useState(false)
+
+  const [reports, setReports] = useState<AdminReport[]>([])
+  const [reportsLoading, setReportsLoading] = useState(false)
+  const [reportsSetupRequired, setReportsSetupRequired] = useState(false)
+  const [updatingReportId, setUpdatingReportId] = useState<string | null>(null)
+
   const totalPages = Math.ceil(usersTotal / 20)
 
   // ── Check admin access ──────────────────────────────────────────────────────
@@ -129,7 +189,7 @@ export default function AdminPage() {
           return
         }
         setAuthorized(true)
-      } catch (err) {
+      } catch {
         setAuthorized(false)
         router.push("/dashboard")
       }
@@ -163,6 +223,33 @@ export default function AdminPage() {
     }
   }, [])
 
+  const fetchMahramRequests = useCallback(async () => {
+    setMahramRequestsLoading(true)
+    try {
+      const res = await fetch("/api/admin/mahram-requests")
+      if (res.ok) {
+        const data = await res.json()
+        setMahramRequests(data.requests ?? [])
+      }
+    } finally {
+      setMahramRequestsLoading(false)
+    }
+  }, [])
+
+  const fetchReports = useCallback(async () => {
+    setReportsLoading(true)
+    try {
+      const res = await fetch("/api/admin/reports")
+      if (res.ok) {
+        const data = await res.json()
+        setReports(data.reports ?? [])
+        setReportsSetupRequired(Boolean(data.setupRequired))
+      }
+    } finally {
+      setReportsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (authorized) fetchStats()
   }, [authorized, fetchStats])
@@ -170,6 +257,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (authorized && (tab === "users" || tab === "mahrams")) fetchUsers(page)
   }, [authorized, tab, page, fetchUsers])
+
+  useEffect(() => {
+    if (authorized && tab === "mahrams") fetchMahramRequests()
+  }, [authorized, tab, fetchMahramRequests])
+
+  useEffect(() => {
+    if (authorized && tab === "reports") fetchReports()
+  }, [authorized, tab, fetchReports])
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -184,12 +279,30 @@ export default function AdminPage() {
     setUpdatingId(null)
   }
 
+  const updateReportStatus = async (id: string, status: AdminReport["status"]) => {
+    setUpdatingReportId(id)
+    try {
+      const res = await fetch("/api/admin/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      })
+
+      if (res.ok) {
+        setReports(prev => prev.map(report => report.id === id ? { ...report, status } : report))
+      }
+    } finally {
+      setUpdatingReportId(null)
+    }
+  }
+
   // ── Tabs config ─────────────────────────────────────────────────────────────
 
   const TABS = [
     { id: "stats",   label: "Statistiques", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "users",   label: "Utilisateurs", icon: <Users className="w-4 h-4" /> },
     { id: "mahrams", label: "Mahrams",       icon: <Shield className="w-4 h-4" /> },
+    { id: "reports", label: "Signalements",  icon: <FileWarning className="w-4 h-4" /> },
   ]
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -284,10 +397,16 @@ export default function AdminPage() {
                   />
                   <StatCard
                     icon={<Shield className="w-5 h-5 text-amber-600" />}
-                    label="Mahrams en attente"
-                    value={stats.mahramEnAttente}
-                    sub={`${stats.mahramValide} validés`}
+                    label="Demandes Mahram"
+                    value={stats.demandesMahramEnAttente}
+                    sub={`${stats.demandesMahramValidees} approuvées`}
                     color="bg-amber-50"
+                  />
+                  <StatCard
+                    icon={<FileWarning className="w-5 h-5 text-red-600" />}
+                    label="Signalements ouverts"
+                    value={stats.signalementsOuverts}
+                    color="bg-red-50"
                   />
                   <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4 shadow-premium col-span-2 md:col-span-2">
                     <div className="flex gap-4 flex-1">
@@ -469,66 +588,169 @@ export default function AdminPage() {
                 <>
                   <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-premium">
                     <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-                    <p className="text-2xl font-serif font-bold text-amber-600">{stats.mahramEnAttente}</p>
+                    <p className="text-2xl font-serif font-bold text-amber-600">{stats.demandesMahramEnAttente}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">En attente</p>
                   </div>
                   <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-premium">
                     <Check className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-                    <p className="text-2xl font-serif font-bold text-emerald-600">{stats.mahramValide}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Validés</p>
+                    <p className="text-2xl font-serif font-bold text-emerald-600">{stats.demandesMahramValidees}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Approuvées</p>
                   </div>
                   <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-premium">
-                    <UserX className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
+                    <Mail className="w-5 h-5 text-primary mx-auto mb-1" />
                     <p className="text-2xl font-serif font-bold text-foreground">
-                      {stats.totalUsers - stats.mahramEnAttente - stats.mahramValide}
+                      {mahramRequests.filter(request => request.email_status === "sent").length}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Sans mahram</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Emails envoyés</p>
                   </div>
                 </>
               ) : null}
             </div>
 
-            {/* Liste profils avec mahram en attente */}
+            {/* Liste demandes Mahram après match */}
             <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-premium">
               <div className="px-5 py-4 border-b border-border flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-foreground text-sm">Mahrams en attente de validation</h3>
+                <h3 className="font-semibold text-foreground text-sm">Demandes Mahram après match</h3>
               </div>
-              {usersLoading ? (
+              {mahramRequestsLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
                 </div>
+              ) : mahramRequests.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune demande Mahram après match pour l&apos;instant.</p>
+                </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {users.filter(u => u.mahram_statut === "en_attente").length === 0 ? (
-                    <div className="p-8 text-center">
-                      <Check className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Aucun mahram en attente.</p>
-                    </div>
-                  ) : (
-                    users.filter(u => u.mahram_statut === "en_attente").map(user => (
-                      <div key={user.id} className="flex items-center gap-4 px-5 py-4">
-                        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-                          <span className="text-sm font-semibold text-muted-foreground">
-                            {user.prenom?.[0]?.toUpperCase() ?? "?"}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{user.prenom ?? "—"}</p>
+                  {mahramRequests.map(request => (
+                    <div key={request.id} className="px-5 py-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground">
+                            {request.protectedProfile?.prenom ?? "Profil protégé"} ↔ {request.matchProfile?.prenom ?? "Match"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Mahram : {request.mahram_name || "Nom non renseigné"} · {request.mahram_email || "Email absent"}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            Inscrit le {new Date(user.created_at).toLocaleDateString("fr-FR")}
+                            Conversation {request.conversation_id.slice(0, 8)}
                           </p>
                         </div>
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${MAHRAM_CONFIG[user.mahram_statut]?.cls ?? "bg-secondary text-muted-foreground"}`}>
-                          {MAHRAM_CONFIG[user.mahram_statut]?.label ?? user.mahram_statut}
-                        </span>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${MAHRAM_CONFIG[request.status]?.cls ?? "bg-secondary text-muted-foreground"}`}>
+                            {MAHRAM_CONFIG[request.status]?.label ?? request.status}
+                          </span>
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${EMAIL_STATUS_CONFIG[request.email_status || "pending"]?.cls ?? "bg-secondary text-muted-foreground"}`}>
+                            {EMAIL_STATUS_CONFIG[request.email_status || "pending"]?.label ?? request.email_status}
+                          </span>
+                        </div>
                       </div>
-                    ))
-                  )}
+                      {request.access_token && (
+                        <a
+                          href={`/mahram-interface?token=${request.access_token}`}
+                          className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
+                        >
+                          Voir l&apos;interface Mahram
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
+        {tab === "reports" && (
+          <div className="space-y-4">
+            {reportsSetupRequired && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                La table des signalements n&apos;est pas encore installée dans Supabase. Lance le script <span className="font-semibold">scripts/04_admin_reports.sql</span>.
+              </div>
+            )}
+
+            <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-premium">
+              <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                <FileWarning className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm">Signalements</h3>
+              </div>
+
+              {reportsLoading ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+                </div>
+              ) : reports.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Check className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucun signalement pour l&apos;instant.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {reports.map(report => (
+                    <div key={report.id} className="px-5 py-4 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground">
+                            {report.reportedUser?.prenom ?? "Profil signalé"} signalé par {report.reporter?.prenom ?? "Utilisateur"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Motif : {report.reason}
+                          </p>
+                          {report.details && (
+                            <p className="text-sm text-foreground mt-2 rounded-xl bg-secondary/70 px-3 py-2">
+                              {report.details}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Reçu le {new Date(report.created_at).toLocaleDateString("fr-FR")}
+                          </p>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${REPORT_STATUS_CONFIG[report.status]?.cls ?? "bg-secondary text-muted-foreground"}`}>
+                          {REPORT_STATUS_CONFIG[report.status]?.label ?? report.status}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => updateReportStatus(report.id, "reviewed")}
+                          disabled={updatingReportId === report.id}
+                          className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium disabled:opacity-50"
+                        >
+                          Marquer vu
+                        </button>
+                        <button
+                          onClick={() => updateReportStatus(report.id, "dismissed")}
+                          disabled={updatingReportId === report.id}
+                          className="px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground text-xs font-medium disabled:opacity-50"
+                        >
+                          Classer
+                        </button>
+                        <button
+                          onClick={() => updateReportStatus(report.id, "actioned")}
+                          disabled={updatingReportId === report.id}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium disabled:opacity-50"
+                        >
+                          Action prise
+                        </button>
+                        {report.reportedUser && (
+                          <button
+                            onClick={() => updateStatut(report.reportedUser!.id, "suspendu")}
+                            disabled={updatingId === report.reportedUser.id}
+                            className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium disabled:opacity-50"
+                          >
+                            Suspendre le profil
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

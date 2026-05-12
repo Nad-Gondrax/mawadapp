@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { isUserAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin-client"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     )
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { searchParams } = new URL(request.url)
   const page = parseInt(searchParams.get("page") ?? "1")
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
   const { data, error, count } = await supabase
     .from("profiles")
-    .select("id, prenom, age, genre, ville, niveau_pratique, statut, onboarding_complete, mahram_statut, created_at", { count: "exact" })
+    .select("id, prenom, age, genre, ville, niveau_pratique, statut, onboarding_complete, mahram_statut, mahram_email, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -38,10 +38,13 @@ export async function PATCH(request: Request) {
     )
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { id, statut } = await request.json()
   if (!id || !statut) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 })
+  if (!["actif", "suspendu", "banni", "verifie"].includes(statut)) {
+    return NextResponse.json({ error: "Statut invalide" }, { status: 400 })
+  }
 
   const { error } = await supabase
     .from("profiles")

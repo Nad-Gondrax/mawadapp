@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { 
   ChevronLeft, MapPin, Globe, BookOpen, Users, Heart, Pencil, Shield, 
-  GraduationCap, Briefcase, Ruler, Shirt, Home, Baby, Sparkles,
-  HeartHandshake, Flame, MessageCircle, UserCheck, Loader2
+  GraduationCap, Briefcase, Ruler, Shirt, Home, Baby, Sparkles, CircleUserRound,
+  HeartHandshake, Flame, MessageCircle, UserCheck, Loader2, PersonStanding, UserRound,
+  Camera, Trash2, Eye, EyeOff, Lock, CheckCircle, XCircle
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { addLike } from "@/lib/supabase-queries"
+import { getUserFacingError } from "@/lib/user-facing-errors"
 import {
   NIVEAUX_PRATIQUE_LABELS, NIVEAUX_ETUDES_LABELS,
   PROJET_MARIAGE_LABELS, SITUATION_MARITALE_LABELS
@@ -37,6 +40,7 @@ const AVEC_QUI_LABELS: Record<string, string> = {
 
 const RELATION_SEXE_LABELS: Record<string, string> = {
   aucune: "Aucune relation",
+  quelques_amis: "Quelques ami(e)s",
   travail: "Uniquement au travail",
   amicale: "Relations amicales",
   mixte: "Environnement mixte",
@@ -56,6 +60,7 @@ interface Profile {
   ville: string
   pays_origine: string
   photo: string | null
+  photo_blurred?: boolean | null
   taille: number | null
   silhouette: string | null
   barbe: boolean | null
@@ -90,12 +95,39 @@ interface Profile {
   mahram_statut?: string
 }
 
+type PhotoUnblurStatus = "pending" | "approved" | "refused"
+
+type IncomingPhotoRequest = {
+  id: string
+  requester_id: string
+  status: PhotoUnblurStatus
+  created_at: string
+  requester?: {
+    id: string
+    prenom: string | null
+    age: number | null
+    ville: string | null
+  } | null
+}
+
 export default function ProfilPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMe, setIsMe] = useState(false)
   const [resolvedId, setResolvedId] = useState<string | null>(null)
+  const [photoSaving, setPhotoSaving] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [likeSaving, setLikeSaving] = useState(false)
+  const [likeError, setLikeError] = useState<string | null>(null)
+  const [matched, setMatched] = useState(false)
+  const [matchWarning, setMatchWarning] = useState<string | null>(null)
+  const [photoRequestStatus, setPhotoRequestStatus] = useState<PhotoUnblurStatus | null>(null)
+  const [incomingPhotoRequests, setIncomingPhotoRequests] = useState<IncomingPhotoRequest[]>([])
+  const [photoPrivacySaving, setPhotoPrivacySaving] = useState(false)
+  const [photoPrivacyError, setPhotoPrivacyError] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -106,6 +138,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
 
       if (id === "me" && user) {
         setIsMe(true)
+        setLiked(false)
         // Charger son propre profil complet depuis profiles
         const { data } = await supabase
           .from("profiles")
@@ -113,6 +146,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
           .eq("id", user.id)
           .single()
         setProfile(data)
+        await loadIncomingPhotoRequests(supabase, user.id)
       } else {
         // Charger un autre profil depuis profiles_public
         const { data } = await supabase
@@ -121,12 +155,72 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
           .eq("id", id)
           .single()
         setProfile(data)
-        setIsMe(user?.id === id)
+        const viewingOwnProfile = user?.id === id
+        setIsMe(viewingOwnProfile)
+
+        if (user && !viewingOwnProfile) {
+          const [likeResponse, photoRequestResponse] = await Promise.all([
+            supabase
+              .from("likes")
+              .select("id")
+              .eq("from_user_id", user.id)
+              .eq("to_user_id", id)
+              .maybeSingle(),
+            supabase
+              .from("photo_unblur_requests")
+              .select("status")
+              .eq("requester_id", user.id)
+              .eq("requested_user_id", id)
+              .maybeSingle(),
+          ])
+
+          setLiked(Boolean(likeResponse.data))
+          setPhotoRequestStatus((photoRequestResponse.data?.status as PhotoUnblurStatus | undefined) || null)
+        } else {
+          setLiked(false)
+          setPhotoRequestStatus(null)
+        }
       }
       setLoading(false)
     }
+
+    async function loadIncomingPhotoRequests(supabase: ReturnType<typeof createClient>, userId: string) {
+      const { data: requests } = await supabase
+        .from("photo_unblur_requests")
+        .select("id, requester_id, status, created_at")
+        .eq("requested_user_id", userId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+
+      const requestRows = (requests || []) as IncomingPhotoRequest[]
+      const requesterIds = requestRows.map(request => request.requester_id)
+
+      if (requesterIds.length === 0) {
+        setIncomingPhotoRequests([])
+        return
+      }
+
+      const { data: requesterProfiles } = await supabase
+        .from("profiles_public")
+        .select("id, prenom, age, ville")
+        .in("id", requesterIds)
+
+      setIncomingPhotoRequests(
+        requestRows.map(request => ({
+          ...request,
+          requester: requesterProfiles?.find(requester => requester.id === request.requester_id) || null,
+        })),
+      )
+    }
+
     loadProfile()
   }, [params])
+
+  useEffect(() => {
+    if (!matched) return
+    const timeout = window.setTimeout(() => setMatched(false), 4500)
+    return () => window.clearTimeout(timeout)
+  }, [matched])
 
   if (loading) {
     return (
@@ -151,6 +245,185 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
   const originesPere = [profile.origine_pere_pays1, profile.origine_pere_pays2].filter(Boolean).join(" / ")
   const originesMere = [profile.origine_mere_pays1, profile.origine_mere_pays2].filter(Boolean).join(" / ")
 
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file || !profile) return
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setPhotoError("Format non supporte. Utilisez JPEG, PNG ou WebP.")
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("La photo ne doit pas depasser 5 MB.")
+      return
+    }
+
+    setPhotoSaving(true)
+    setPhotoError(null)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+
+      const ext = file.name.split(".").pop() || "jpg"
+      const filePath = `${user.id}/avatar-${Date.now()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath)
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ photo: urlData.publicUrl })
+        .eq("id", user.id)
+        .select("*")
+        .single()
+
+      if (error) throw error
+      setProfile(data)
+    } catch (error) {
+      setPhotoError(getUserFacingError(error, "photoUpload"))
+    } finally {
+      setPhotoSaving(false)
+    }
+  }
+
+  const handlePhotoDelete = async () => {
+    if (!profile?.photo) return
+
+    setPhotoSaving(true)
+    setPhotoError(null)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ photo: null })
+        .eq("id", user.id)
+        .select("*")
+        .single()
+
+      if (error) throw error
+      setProfile(data)
+    } catch (error) {
+      setPhotoError(getUserFacingError(error, "photoDelete"))
+    } finally {
+      setPhotoSaving(false)
+    }
+  }
+
+  const handlePhotoBlurToggle = async () => {
+    if (!profile || !isMe) return
+
+    setPhotoPrivacySaving(true)
+    setPhotoPrivacyError(null)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ photo_blurred: !profile.photo_blurred })
+        .eq("id", user.id)
+        .select("*")
+        .single()
+
+      if (error) throw error
+      setProfile(data)
+    } catch {
+      setPhotoPrivacyError("Impossible de modifier la confidentialité de la photo.")
+    } finally {
+      setPhotoPrivacySaving(false)
+    }
+  }
+
+  const handlePhotoUnblurRequest = async () => {
+    if (!profile || isMe || photoRequestStatus) return
+
+    setPhotoPrivacySaving(true)
+    setPhotoPrivacyError(null)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Non authentifié")
+
+      const { error } = await supabase
+        .from("photo_unblur_requests")
+        .insert({
+          requester_id: user.id,
+          requested_user_id: profile.id,
+          status: "pending",
+        })
+
+      if (error) throw error
+      setPhotoRequestStatus("pending")
+    } catch {
+      setPhotoPrivacyError("Impossible d'envoyer la demande de défloutage.")
+    } finally {
+      setPhotoPrivacySaving(false)
+    }
+  }
+
+  const handlePhotoUnblurDecision = async (requestId: string, status: "approved" | "refused") => {
+    setPhotoPrivacySaving(true)
+    setPhotoPrivacyError(null)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("photo_unblur_requests")
+        .update({ status })
+        .eq("id", requestId)
+
+      if (error) throw error
+      setIncomingPhotoRequests(prev => prev.filter(request => request.id !== requestId))
+    } catch {
+      setPhotoPrivacyError("Impossible d'enregistrer la décision.")
+    } finally {
+      setPhotoPrivacySaving(false)
+    }
+  }
+
+  const handleLike = async () => {
+    if (!profile || isMe || liked) return
+
+    setLikeSaving(true)
+    setLikeError(null)
+    setMatchWarning(null)
+
+    try {
+      const result = await addLike(profile.id)
+      const mahramRequest = result.mahramRequest as { email?: { sent?: boolean; reason?: string } } | null
+      const mahramEmailFailed = mahramRequest?.email?.sent === false && mahramRequest.email.reason !== "No mahram email"
+
+      setLiked(true)
+      setMatched(result.matched)
+      setMatchWarning(result.matched && (!mahramRequest || mahramEmailFailed) ? getUserFacingError(new Error("mahram request failed"), "match") : null)
+    } catch (error) {
+      setLikeError(getUserFacingError(error, "like"))
+    } finally {
+      setLikeSaving(false)
+    }
+  }
+
+  const hasPhotoAccess = isMe || !profile.photo_blurred || photoRequestStatus === "approved"
+  const shouldBlurProfilePhoto = Boolean(profile.photo_blurred) && !hasPhotoAccess
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -165,7 +438,10 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
           {isMe ? "Mon profil" : `Profil de ${profile.prenom}`}
         </h1>
         {isMe && (
-          <button className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-xl text-sm font-medium hover:bg-border transition-colors">
+          <button
+            onClick={() => router.push("/onboarding?edit=1")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-xl text-sm font-medium hover:bg-border transition-colors"
+          >
             <Pencil className="w-3.5 h-3.5" />
             Modifier
           </button>
@@ -175,11 +451,63 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
       <div className="max-w-2xl mx-auto">
         {/* Hero photo */}
         <div className="relative aspect-[4/3] bg-secondary overflow-hidden">
+          {isMe && (
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+          )}
           <img
             src={profile.photo || (profile.genre === "femme" ? "/profil_femme.png" : "/profil_homme.png")}
             alt={`Photo de ${profile.prenom}`}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-all ${shouldBlurProfilePhoto ? "blur-md scale-105" : ""}`}
           />
+          {shouldBlurProfilePhoto && (
+            <div className="absolute inset-0 flex items-center justify-center bg-[#102A2A]/10">
+              <div className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-foreground shadow">
+                Photo privée
+              </div>
+            </div>
+          )}
+          {isMe && (
+            <div className="absolute left-4 bottom-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={photoSaving}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/95 text-foreground rounded-xl text-xs font-semibold shadow hover:bg-white disabled:opacity-60 transition-colors"
+              >
+                {photoSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                Changer
+              </button>
+              <button
+                type="button"
+                onClick={handlePhotoDelete}
+                disabled={!profile.photo || photoSaving}
+                title={profile.photo ? "Supprimer la photo" : "Aucune photo personnelle a supprimer"}
+                className={`flex items-center gap-1.5 px-3 py-2 bg-white/95 rounded-xl text-xs font-semibold shadow transition-colors ${
+                  profile.photo
+                    ? "text-destructive hover:bg-white"
+                    : "text-muted-foreground cursor-not-allowed opacity-70"
+                } disabled:opacity-60`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Supprimer
+              </button>
+              <button
+                type="button"
+                onClick={handlePhotoBlurToggle}
+                disabled={photoPrivacySaving}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/95 text-foreground rounded-xl text-xs font-semibold shadow hover:bg-white disabled:opacity-60 transition-colors"
+              >
+                {profile.photo_blurred ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                {profile.photo_blurred ? "Rendre visible" : "Flouter"}
+              </button>
+            </div>
+          )}
           {/* Mahram badge (pour les femmes) */}
           {profile.genre === "femme" && (
             <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow ${
@@ -192,6 +520,16 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
             </div>
           )}
         </div>
+        {isMe && photoError && (
+          <div className="mx-4 mt-3 rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {photoError}
+          </div>
+        )}
+        {photoPrivacyError && (
+          <div className="mx-4 mt-3 rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {photoPrivacyError}
+          </div>
+        )}
 
         <div className="px-4 py-6 space-y-6">
           {/* Nom et infos de base */}
@@ -203,6 +541,111 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               <span className="flex items-center gap-1"><Globe className="w-3.5 h-3.5" />{profile.pays_origine}</span>
             </div>
           </div>
+
+          {!isMe && (
+            <div className="space-y-2">
+              {profile.photo_blurred && (
+                <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Lock className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Photo floutée volontairement</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Vous pouvez demander à {profile.prenom} l’autorisation de voir sa photo nette.
+                      </p>
+                    </div>
+                  </div>
+                  {photoRequestStatus === "approved" ? (
+                    <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                      Demande acceptée : la photo est visible pour vous.
+                    </p>
+                  ) : photoRequestStatus === "pending" ? (
+                    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                      Demande envoyée. En attente de réponse.
+                    </p>
+                  ) : photoRequestStatus === "refused" ? (
+                    <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                      Demande refusée.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handlePhotoUnblurRequest}
+                      disabled={photoPrivacySaving}
+                      className="w-full rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:opacity-60"
+                    >
+                      Demander à voir la photo
+                    </button>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleLike}
+                disabled={liked || likeSaving}
+                className={`w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg transition-all disabled:opacity-80 ${
+                  liked
+                    ? "border-2 border-[#FF6B6B]/30 bg-[#FF6B6B]/10 text-[#FF6B6B] shadow-none"
+                    : "bg-[#FF6B6B] text-white shadow-[#FF6B6B]/20 hover:bg-[#FF6B6B]/90"
+                }`}
+              >
+                {likeSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Heart className={`w-4 h-4 ${liked ? "fill-[#FF6B6B]" : ""}`} />
+                )}
+                {liked ? "Profil liké" : "J'aime ce profil"}
+              </button>
+              <p className="text-center text-xs text-muted-foreground">
+                Si la personne vous like aussi, vous pourrez échanger, sous supervision du Mahram.
+              </p>
+              {likeError && (
+                <p className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {likeError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {isMe && incomingPhotoRequests.length > 0 && (
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground">Demandes de défloutage</h3>
+              </div>
+              {incomingPhotoRequests.map(request => (
+                <div key={request.id} className="rounded-xl border border-border p-3 space-y-3">
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold">{request.requester?.prenom || "Un profil"}</span>
+                    {request.requester?.age ? `, ${request.requester.age} ans` : ""}
+                    {request.requester?.ville ? ` · ${request.requester.ville}` : ""} souhaite voir votre photo nette.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePhotoUnblurDecision(request.id, "refused")}
+                      disabled={photoPrivacySaving}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-60"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Refuser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePhotoUnblurDecision(request.id, "approved")}
+                      disabled={photoPrivacySaving}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Accepter
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Presentation */}
           {profile.presentation && (
@@ -344,18 +787,21 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               )}
               {profile.silhouette && (
                 <div className="bg-card rounded-xl border border-border p-3 text-center">
+                  <PersonStanding className="w-4 h-4 mx-auto text-primary mb-1" />
                   <p className="text-xs text-muted-foreground">Silhouette</p>
                   <p className="text-sm font-semibold text-foreground">{SILHOUETTE_LABELS[profile.silhouette] || profile.silhouette}</p>
                 </div>
               )}
               {profile.genre === "homme" && profile.barbe !== null && (
                 <div className="bg-card rounded-xl border border-border p-3 text-center">
+                  <UserRound className="w-4 h-4 mx-auto text-primary mb-1" />
                   <p className="text-xs text-muted-foreground">Barbe</p>
                   <p className="text-sm font-semibold text-foreground">{profile.barbe ? "Oui" : "Non"}</p>
                 </div>
               )}
               {profile.genre === "femme" && profile.hijab && (
                 <div className="bg-card rounded-xl border border-border p-3 text-center">
+                  <CircleUserRound className="w-4 h-4 mx-auto text-primary mb-1" />
                   <p className="text-xs text-muted-foreground">Hijab</p>
                   <p className="text-sm font-semibold text-foreground">{HIJAB_LABELS[profile.hijab] || profile.hijab}</p>
                 </div>
@@ -457,15 +903,13 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               </div>
             )}
           </div>
-
-          {/* Action button */}
-          {!isMe && (
-            <button className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">
-              Envoyer un Like Halal
-            </button>
-          )}
         </div>
       </div>
+      {matched && (
+        <div className="fixed inset-x-4 bottom-20 z-50 mx-auto max-w-sm rounded-2xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-lg">
+          {matchWarning || "Match réciproque détecté. Retrouvez-le dans vos matchs."}
+        </div>
+      )}
     </div>
   )
 }

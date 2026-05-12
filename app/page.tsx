@@ -8,17 +8,17 @@ import { Shield, Heart, Users, MessageCircle, Star, ArrowRight, Sparkles, CheckC
 import { AuthModal } from "@/components/auth/auth-modal"
 
 const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 1, y: 0 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
 }
 
 const staggerContainer = {
-  hidden: { opacity: 0 },
+  hidden: { opacity: 1 },
   visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
 }
 
 const scaleIn = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 1, scale: 1 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } }
 }
 
@@ -80,7 +80,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
       <motion.header 
-        initial={{ opacity: 0, y: -20 }}
+        initial={false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/20"
@@ -207,7 +207,7 @@ export default function LandingPage() {
 
             {/* Right mockup */}
             <motion.div 
-              initial={{ opacity: 0, x: 60 }}
+              initial={false}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
               className="relative hidden lg:block"

@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight, Upload, Check, Mail, AlertCircle, Loader2 } from "lucide-react"
-import { ALL_TRAITS, PAYS, VILLES_FRANCE } from "@/lib/mock-data"
+import { ALL_TRAITS, VILLES_FRANCE } from "@/lib/mock-data"
 import { createClient } from "@/lib/supabase/client"
+import { getUserFacingError } from "@/lib/user-facing-errors"
 
 const TOTAL_STEPS = 14
 
@@ -48,6 +49,59 @@ const MAHRAM_TYPES = [
   { value: "autre", label: "Autre" },
 ]
 
+const ORIGINES_PARENTS = [
+  "Algérie", "Maroc", "Tunisie", "Sénégal", "Mali",
+  "Turquie", "Liban", "Pakistan", "Bangladesh", "Indonésie",
+  "Bosnie", "Kosovo", "France", "Autre",
+]
+
+function originToForm(value: string | null | undefined) {
+  if (!value) return { value: "", autre: "" }
+  if (ORIGINES_PARENTS.includes(value)) return { value, autre: "" }
+  return { value: "Autre", autre: value }
+}
+
+function OrigineSelect({
+  data,
+  onChange,
+  label,
+  valueKey,
+  autreKey,
+  placeholder,
+}: {
+  data: any
+  onChange: (d: any) => void
+  label: string
+  valueKey: string
+  autreKey: string
+  placeholder: string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      <select
+        value={data[valueKey] || ""}
+        onChange={e => onChange({ ...data, [valueKey]: e.target.value, ...(e.target.value !== "Autre" ? { [autreKey]: "" } : {}) })}
+        className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">{placeholder}</option>
+        {ORIGINES_PARENTS.map(pays => (
+          <option key={pays} value={pays}>{pays}</option>
+        ))}
+      </select>
+      {data[valueKey] === "Autre" && (
+        <input
+          type="text"
+          placeholder="Préciser le pays"
+          value={data[autreKey] || ""}
+          onChange={e => onChange({ ...data, [autreKey]: e.target.value })}
+          className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      )}
+    </div>
+  )
+}
+
 // --- Step 1 (avec validation mahram pour femmes) ---
 function Step1({ data, onChange, mahramValidated, onMahramValidate }: { 
   data: any; 
@@ -59,7 +113,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
   const [villeOpen, setVilleOpen] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
   const [codeDigits, setCodeDigits] = useState(["", "", "", ""])
-  const [codeError, setCodeError] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [codeToken, setCodeToken] = useState<string | null>(null)
+  const [codeSending, setCodeSending] = useState(false)
+  const [codeVerifying, setCodeVerifying] = useState(false)
   const codeRefs = useRef<(HTMLInputElement | null)[]>([])
   const filtered = VILLES_FRANCE.filter(v => v.toLowerCase().includes(villeQuery.toLowerCase()))
 
@@ -68,7 +125,7 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
     const newDigits = [...codeDigits]
     newDigits[index] = value.slice(-1)
     setCodeDigits(newDigits)
-    setCodeError(false)
+    setCodeError(null)
     // Auto-focus next input
     if (value && index < 3) {
       codeRefs.current[index + 1]?.focus()
@@ -94,23 +151,69 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
     }
   }
 
-  // Simulated 4-digit code (in real app, this would be sent via email)
-  const correctCode = "1234"
+  const resetCode = () => {
+    setCodeSent(false)
+    setCodeToken(null)
+    setCodeDigits(["", "", "", ""])
+    setCodeError(null)
+  }
 
-  const handleSendCode = () => {
-    if (data.mahramEmail && data.mahramType) {
+  const handleSendCode = async () => {
+    if (!data.mahramEmail || !data.mahramType) return
+
+    setCodeSending(true)
+    setCodeError(null)
+
+    try {
+      const response = await fetch("/api/mahram/onboarding-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.mahramEmail,
+          relation: data.mahramType,
+        }),
+      })
+      const result = await response.json()
+
+      if (!response.ok) throw new Error(result.error || "Envoi impossible")
+
+      setCodeToken(result.token)
       setCodeSent(true)
-      setCodeError(false)
+      setCodeDigits(["", "", "", ""])
+      window.setTimeout(() => codeRefs.current[0]?.focus(), 50)
+    } catch (error) {
+      setCodeError(error instanceof Error ? error.message : "Impossible d'envoyer le code au Mahram.")
+    } finally {
+      setCodeSending(false)
     }
   }
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     const enteredCode = codeDigits.join("")
-    if (enteredCode === correctCode) {
+    if (!codeToken || enteredCode.length !== 4) return
+
+    setCodeVerifying(true)
+    setCodeError(null)
+
+    try {
+      const response = await fetch("/api/mahram/onboarding-code", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: codeToken,
+          code: enteredCode,
+        }),
+      })
+      const result = await response.json()
+
+      if (!response.ok) throw new Error(result.error || "Code incorrect")
+
       onMahramValidate()
-      setCodeError(false)
-    } else {
-      setCodeError(true)
+      setCodeError(null)
+    } catch (error) {
+      setCodeError(error instanceof Error ? error.message : "Code incorrect, veuillez réessayer.")
+    } finally {
+      setCodeVerifying(false)
     }
   }
 
@@ -123,7 +226,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
             <button
               key={g}
               type="button"
-              onClick={() => onChange({ ...data, genre: g, mahramEmail: "", mahramType: "" })}
+              onClick={() => {
+                resetCode()
+                onChange({ ...data, genre: g, mahramEmail: "", mahramType: "" })
+              }}
               className={`py-3 rounded-xl border-2 font-semibold capitalize transition-all ${
                 data.genre === g ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"
               }`}
@@ -149,7 +255,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
                 <button
                   key={m.value}
                   type="button"
-                  onClick={() => onChange({ ...data, mahramType: m.value })}
+                  onClick={() => {
+                    resetCode()
+                    onChange({ ...data, mahramType: m.value })
+                  }}
                   className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
                     data.mahramType === m.value ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50"
                   }`}
@@ -167,7 +276,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
               name="mahram-email"
               autoComplete="off"
               value={data.mahramEmail || ""}
-              onChange={e => onChange({ ...data, mahramEmail: e.target.value })}
+              onChange={e => {
+                resetCode()
+                onChange({ ...data, mahramEmail: e.target.value })
+              }}
               placeholder="mahram@email.com"
               disabled={mahramValidated}
               className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
@@ -178,10 +290,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
             <button
               type="button"
               onClick={handleSendCode}
-              disabled={!data.mahramEmail || !data.mahramType}
+              disabled={!data.mahramEmail || !data.mahramType || codeSending}
               className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Envoyer le code au Mahram
+              {codeSending ? "Envoi du code..." : "Envoyer le code au Mahram"}
             </button>
           )}
 
@@ -203,6 +315,7 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
                       value={digit}
                       onChange={e => handleCodeChange(index, e.target.value)}
                       onKeyDown={e => handleCodeKeyDown(index, e)}
+                      disabled={codeVerifying}
                       className={`w-14 h-14 border-2 rounded-xl text-center font-mono text-2xl font-bold bg-background focus:outline-none focus:ring-2 focus:ring-ring transition-all ${
                         codeError ? "border-destructive" : digit ? "border-primary" : "border-border"
                       }`}
@@ -212,21 +325,26 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
                 <button
                   type="button"
                   onClick={handleVerifyCode}
-                  disabled={codeDigits.some(d => !d)}
+                  disabled={codeDigits.some(d => !d) || codeVerifying}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
                 >
-                  Valider le code
+                  {codeVerifying ? "Validation..." : "Valider le code"}
                 </button>
               </div>
               {codeError && (
                 <div className="flex items-center justify-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4" />
-                  <span>Code incorrect, veuillez réessayer</span>
+                  <span>{codeError}</span>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground text-center">
-                Pour tester, le code est : <strong>1234</strong>
-              </p>
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={codeSending}
+                className="mx-auto block text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                {codeSending ? "Renvoi en cours..." : "Renvoyer un nouveau code"}
+              </button>
             </div>
           )}
 
@@ -284,15 +402,26 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Pays d&apos;origine *</label>
-        <select
-          value={data.paysOrigine || ""}
-          onChange={e => onChange({ ...data, paysOrigine: e.target.value })}
-          className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Sélectionner un pays</option>
-          {PAYS.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <label className="block text-sm font-medium text-foreground mb-2">Nationalité française *</label>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: "France", label: "Oui" },
+            { value: "Non française", label: "Non" },
+          ].map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange({ ...data, paysOrigine: option.value })}
+              className={`py-3 rounded-xl border-2 font-semibold transition-all ${
+                data.paysOrigine === option.value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -671,9 +800,9 @@ function Step7({ data, onChange }: { data: any; onChange: (d: any) => void }) {
         .from("avatars")
         .getPublicUrl(filePath)
 
-      onChange({ ...data, photoUrl: urlData.publicUrl })
-    } catch (err: any) {
-      setUploadError("Erreur lors de l'upload. Réessayez.")
+      onChange({ ...data, photo: urlData.publicUrl })
+    } catch (error) {
+      setUploadError(getUserFacingError(error, "photoUpload"))
     } finally {
       setUploading(false)
     }
@@ -694,10 +823,10 @@ function Step7({ data, onChange }: { data: any; onChange: (d: any) => void }) {
           onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
         >
-          {data.photoUrl ? (
+          {data.photo ? (
             <div className="space-y-3">
               <img
-                src={data.photoUrl}
+                src={data.photo}
                 alt="Photo de profil"
                 className="w-24 h-24 rounded-full object-cover mx-auto"
               />
@@ -842,45 +971,14 @@ function Step8({ data, onChange }: { data: any; onChange: (d: any) => void }) {
 }
 
 function Step9({ data, onChange }: { data: any; onChange: (d: any) => void }) {
-  const ORIGINES = [
-    "Algérie", "Maroc", "Tunisie", "Sénégal", "Mali",
-    "Turquie", "Liban", "Pakistan", "Bangladesh", "Indonésie",
-    "Bosnie", "Kosovo", "France", "Autre"
-  ]
-
-  const OrigineSelect = ({
-    label, valueKey, autreKey, placeholder
-  }: { label: string; valueKey: string; autreKey: string; placeholder: string }) => (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
-      <select
-        value={data[valueKey] || ""}
-        onChange={e => onChange({ ...data, [valueKey]: e.target.value, ...(e.target.value !== "Autre" ? { [autreKey]: "" } : {}) })}
-        className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        <option value="">{placeholder}</option>
-        {ORIGINES.map(pays => (
-          <option key={pays} value={pays}>{pays}</option>
-        ))}
-      </select>
-      {data[valueKey] === "Autre" && (
-        <input
-          type="text"
-          placeholder="Préciser le pays"
-          value={data[autreKey] || ""}
-          onChange={e => onChange({ ...data, [autreKey]: e.target.value })}
-          className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      )}
-    </div>
-  )
-
   return (
     <div className="space-y-7">
       {/* Père */}
       <div className="bg-secondary/50 rounded-2xl p-4 space-y-3">
         <p className="text-sm font-semibold text-foreground">Père <span className="text-destructive">*</span></p>
         <OrigineSelect
+          data={data}
+          onChange={onChange}
           label="Origine 1"
           valueKey="originePerePays1"
           autreKey="originePerePays1Autre"
@@ -902,6 +1000,8 @@ function Step9({ data, onChange }: { data: any; onChange: (d: any) => void }) {
         </div>
         {data.pereDeux && (
           <OrigineSelect
+            data={data}
+            onChange={onChange}
             label="Origine 2"
             valueKey="originePerePays2"
             autreKey="originePerePays2Autre"
@@ -914,6 +1014,8 @@ function Step9({ data, onChange }: { data: any; onChange: (d: any) => void }) {
       <div className="bg-secondary/50 rounded-2xl p-4 space-y-3">
         <p className="text-sm font-semibold text-foreground">Mère <span className="text-destructive">*</span></p>
         <OrigineSelect
+          data={data}
+          onChange={onChange}
           label="Origine 1"
           valueKey="origineMarePays1"
           autreKey="origineMarePays1Autre"
@@ -935,6 +1037,8 @@ function Step9({ data, onChange }: { data: any; onChange: (d: any) => void }) {
         </div>
         {data.mereDeux && (
           <OrigineSelect
+            data={data}
+            onChange={onChange}
             label="Origine 2"
             valueKey="origineMarePays2"
             autreKey="origineMarePays2Autre"
@@ -1255,6 +1359,89 @@ export default function OnboardingPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadExistingProfile() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      if (!profile || cancelled) return
+
+      const originePere1 = originToForm(profile.origine_pere_pays1)
+      const originePere2 = originToForm(profile.origine_pere_pays2)
+      const origineMere1 = originToForm(profile.origine_mere_pays1)
+      const origineMere2 = originToForm(profile.origine_mere_pays2)
+
+      setData({
+        prenom: profile.prenom || "",
+        age: profile.age || "",
+        genre: profile.genre || "",
+        ville: profile.ville || "",
+        paysOrigine: profile.pays_origine === "France" ? "France" : profile.pays_origine ? "Non française" : "",
+        photo: profile.photo || "",
+        traits: profile.traits || [],
+        stylesVestimentaires: profile.style_vestimentaire || [],
+        situationPro: profile.situation_pro || "",
+        profession: profile.profession || "",
+        niveauEtudes: profile.niveau_etudes || "",
+        autreEtudes: profile.niveau_etudes_autre || "",
+        niveauPratique: profile.niveau_pratique || "",
+        pratiquePriere: profile.pratique_priere || "",
+        situationMaritale: profile.situation_maritale || "",
+        aDesEnfants: profile.nombre_enfants && profile.nombre_enfants > 0 ? "oui" : "non",
+        nombreEnfants: profile.nombre_enfants ? String(profile.nombre_enfants) : "",
+        avecQui: profile.avec_qui || "",
+        projetMariage: profile.projet_mariage || "",
+        souhaitEnfants: profile.souhaite_enfants || "",
+        attraits: profile.attraits || ["", "", ""],
+        repoussants: profile.repoussants || ["", "", ""],
+        taille: profile.taille || "",
+        silhouette: profile.silhouette || "",
+        barbe: profile.barbe ?? undefined,
+        hijab: profile.hijab || "",
+        pereDeux: Boolean(profile.origine_pere_pays2),
+        originePerePays1: originePere1.value,
+        originePerePays1Autre: originePere1.autre,
+        originePerePays2: originePere2.value,
+        originePerePays2Autre: originePere2.autre,
+        mereDeux: Boolean(profile.origine_mere_pays2),
+        origineMarePays1: origineMere1.value,
+        origineMarePays1Autre: origineMere1.autre,
+        origineMarePays2: origineMere2.value,
+        origineMarePays2Autre: origineMere2.autre,
+        relationSexeOppose: profile.relation_sexe_oppose || "",
+        accepteEnfants: profile.accepte_enfants || "",
+        accepteDivorce: profile.accepte_divorce || "",
+        styleAmour: profile.style_amour || [],
+        styleVie: profile.style_vie || [],
+        gestionConflits: profile.gestion_conflits || [],
+        presentation: profile.presentation || "",
+        mahramNom: profile.mahram_nom || "",
+        mahramRelation: profile.mahram_relation || "",
+        mahramEmail: profile.mahram_email || "",
+        mahramTelephone: profile.mahram_telephone || "",
+      })
+
+      if (profile.genre === "femme") {
+        setMahramValidated(true)
+      }
+    }
+
+    loadExistingProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const canNext = () => {
     // Etape 1 : Infos de base + Mahram pour femmes
     if (step === 1) {
@@ -1340,9 +1527,14 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      setSaveError("Vous devez être connecté pour finaliser votre profil.")
+      setSaveError(getUserFacingError(new Error("Non authentifié"), "profileSave"))
       setSaving(false)
       return
+    }
+
+    const resolveAutre = (value?: string, autreValue?: string) => {
+      if (value === "Autre") return autreValue?.trim() || value
+      return value || null
     }
 
     const profile = {
@@ -1364,16 +1556,16 @@ export default function OnboardingPage() {
       niveau_etudes_autre: data.autreEtudes || null,
       situation_pro: data.situationPro || null,
       niveau_pratique: data.niveauPratique || null,
-      pratique_priere: data.pratiquesPrieres || null,
+      pratique_priere: data.pratiquePriere || null,
       situation_maritale: data.situationMaritale || null,
       avec_qui: data.avecQui || null,
       projet_mariage: data.projetMariage || null,
-      souhaite_enfants: data.souhaiteEnfants || null,
+      souhaite_enfants: data.souhaitEnfants || null,
       nombre_enfants: data.nombreEnfants ? Number(data.nombreEnfants) : null,
-      origine_pere_pays1: data.originePerePays1 || null,
-      origine_pere_pays2: data.originePerePays2 || null,
-      origine_mere_pays1: data.origineMarePays1 || null,
-      origine_mere_pays2: data.origineMarePays2 || null,
+      origine_pere_pays1: resolveAutre(data.originePerePays1, data.originePerePays1Autre),
+      origine_pere_pays2: resolveAutre(data.originePerePays2, data.originePerePays2Autre),
+      origine_mere_pays1: resolveAutre(data.origineMarePays1, data.origineMarePays1Autre),
+      origine_mere_pays2: resolveAutre(data.origineMarePays2, data.origineMarePays2Autre),
       relation_sexe_oppose: data.relationSexeOppose || null,
       accepte_enfants: data.accepteEnfants || null,
       accepte_divorce: data.accepteDivorce || null,
@@ -1384,9 +1576,10 @@ export default function OnboardingPage() {
       repoussants: data.repoussants || [],
       presentation: data.presentation || null,
       mahram_nom: data.mahramNom || null,
-      mahram_relation: data.mahramRelation || null,
+      mahram_relation: data.mahramRelation || data.mahramType || null,
       mahram_email: data.mahramEmail || null,
       mahram_telephone: data.mahramTelephone || null,
+      mahram_statut: data.genre === "femme" ? "valide" : null,
       onboarding_complete: true,
     }
 
@@ -1395,7 +1588,7 @@ export default function OnboardingPage() {
       .upsert(profile, { onConflict: "id" })
 
     if (error) {
-      setSaveError("Une erreur est survenue lors de la sauvegarde. Réessayez.")
+      setSaveError(getUserFacingError(error, "profileSave"))
       setSaving(false)
       return
     }

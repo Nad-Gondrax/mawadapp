@@ -1,22 +1,57 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Shield, MessageCircle } from "lucide-react"
-import { MOCK_PROFILES } from "@/lib/mock-data"
+import { AlertTriangle, Clock, MessageCircle, Shield } from "lucide-react"
+import { getConversationThreads, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
 
-const CONVERSATIONS = [
-  {
-    id: "conv1",
-    partnerId: "u4",
-    lastMessage: "Pouvez-vous me parler de votre projet de mariage ?",
-    lastTime: "10:15",
-    unread: 1,
-    mahramApprouve: true,
-  },
-]
+type ConversationThread = Awaited<ReturnType<typeof getConversationThreads>>[number]
+
+function formatTime(value?: string) {
+  if (!value) return ""
+  return new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+}
 
 export default function MessagesPage() {
   const router = useRouter()
+  const [threads, setThreads] = useState<ConversationThread[]>([])
+  const [photoAccessProfileIds, setPhotoAccessProfileIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    async function loadThreads() {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await getConversationThreads()
+        const photoStatuses = await getPhotoUnblurStatuses(data.map(thread => thread.partner.id))
+        if (active) {
+          setPhotoAccessProfileIds(
+            data
+              .filter(thread => photoStatuses.get(thread.partner.id) === "approved")
+              .map(thread => thread.partner.id),
+          )
+          setThreads(data)
+        }
+      } catch (err) {
+        console.error(err)
+        if (active) {
+          setError("Impossible de charger vos messages pour le moment.")
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadThreads()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -26,49 +61,85 @@ export default function MessagesPage() {
       </header>
 
       <div className="p-4 space-y-3">
-        {CONVERSATIONS.length === 0 && (
-          <div className="text-center py-16 space-y-3">
-            <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-            <p className="text-foreground font-semibold">Aucune conversation</p>
-            <p className="text-muted-foreground text-sm">Vos discussions approuvées apparaîtront ici</p>
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map(item => (
+              <div key={item} className="h-24 bg-secondary rounded-2xl animate-pulse" />
+            ))}
           </div>
         )}
 
-        {CONVERSATIONS.map(conv => {
-          const partner = MOCK_PROFILES.find(p => p.id === conv.partnerId)
-          if (!partner) return null
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && threads.length === 0 && (
+          <div className="text-center py-16 space-y-3">
+            <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto" />
+            <p className="text-foreground font-semibold">Aucune conversation</p>
+            <p className="text-muted-foreground text-sm">
+              Vos discussions apparaîtront ici après un like réciproque.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && threads.map(({ conversation, partner, lastMessage }) => {
+          const approved = conversation.mahram_status === "approved"
+          const refused = conversation.mahram_status === "refused"
+          const photoHidden = Boolean(partner.photo_blurred) && !photoAccessProfileIds.includes(partner.id)
+
           return (
             <button
-              key={conv.id}
-              onClick={() => router.push(`/chat/${conv.id}`)}
+              key={conversation.id}
+              onClick={() => router.push(`/chat/${conversation.id}`)}
               className="w-full bg-card rounded-2xl border border-border p-4 flex items-center gap-4 hover:shadow-md transition-shadow text-left"
             >
               <div className="relative">
                 <div className="w-14 h-14 rounded-full bg-secondary overflow-hidden">
-                  {partner.photo && <img src={partner.photo} alt={partner.prenom} className="w-full h-full object-cover" />}
+                  {partner.photo && <img src={partner.photo} alt={partner.prenom} className={`w-full h-full object-cover ${photoHidden ? "blur-sm scale-105" : ""}`} />}
                 </div>
-                {conv.mahramApprouve && (
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-card flex items-center justify-center">
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-card flex items-center justify-center ${
+                  approved ? "bg-emerald-500" : refused ? "bg-red-500" : "bg-amber-500"
+                }`}>
+                  {approved ? (
                     <Shield className="w-2.5 h-2.5 text-white" />
+                  ) : (
+                    <Clock className="w-2.5 h-2.5 text-white" />
+                  )}
                   </div>
-                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-foreground">{partner.prenom}</span>
-                  <span className="text-xs text-muted-foreground">{conv.lastTime}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatTime(lastMessage?.created_at || conversation.updated_at)}
+                  </span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
+                <p className="text-sm text-muted-foreground truncate mt-0.5">
+                  {lastMessage?.content || "Match créé. Demande envoyée au Mahram."}
+                </p>
                 <div className="flex items-center gap-1 mt-1">
-                  <Shield className="w-3 h-3 text-emerald-500" />
-                  <span className="text-xs text-emerald-600 font-medium">Supervisée</span>
+                  {approved ? (
+                    <>
+                      <Shield className="w-3 h-3 text-emerald-500" />
+                      <span className="text-xs text-emerald-600 font-medium">Échange autorisé</span>
+                    </>
+                  ) : refused ? (
+                    <>
+                      <Shield className="w-3 h-3 text-red-500" />
+                      <span className="text-xs text-red-600 font-medium">Refusé par le mahram</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3 h-3 text-amber-500" />
+                      <span className="text-xs text-amber-600 font-medium">Demande envoyée au Mahram</span>
+                    </>
+                  )}
                 </div>
               </div>
-              {conv.unread > 0 && (
-                <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0">
-                  {conv.unread}
-                </div>
-              )}
             </button>
           )
         })}
@@ -77,7 +148,7 @@ export default function MessagesPage() {
           <div className="flex items-start gap-3">
             <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Toutes vos discussions sont supervisées par votre mahram. Seuls les échanges approuvés apparaissent ici.
+              Après un match, le Mahram reçoit une demande de validation. L&apos;échange s&apos;ouvre dès son accord.
             </p>
           </div>
         </div>

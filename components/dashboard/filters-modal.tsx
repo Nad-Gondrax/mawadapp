@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, ChevronDown, RotateCcw, Sliders } from "lucide-react"
+import { X, ChevronDown, RotateCcw, Sliders, Loader2 } from "lucide-react"
 
 const DEPARTEMENTS = [
   "Tous",
@@ -43,8 +43,8 @@ const NIVEAUX_PRATIQUE = [
   { value: "tous", label: "Tous les niveaux" },
   { value: "tres_pratiquant", label: "Très pratiquant(e)" },
   { value: "pratiquant", label: "Pratiquant(e)" },
-  { value: "en_progression", label: "En progression" },
-  { value: "debutant", label: "Je demande à Allah de me guider" },
+  { value: "occasions", label: "Pour les occasions" },
+  { value: "guid_allah", label: "Inch'Allah qu'Il me guide" },
 ]
 
 const PAYS_ORIGINE = [
@@ -72,7 +72,6 @@ export interface Filters {
   paysOrigine: string
   avecEnfants: string
   projetMariage: string
-  mahramValide: boolean
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -84,27 +83,31 @@ const DEFAULT_FILTERS: Filters = {
   paysOrigine: "Tous",
   avecEnfants: "tous",
   projetMariage: "tous",
-  mahramValide: false,
 }
 
 interface FiltersModalProps {
   isOpen: boolean
   onClose: () => void
   filters: Filters
-  onApply: (filters: Filters) => void
+  onApply: (filters: Filters) => void | Promise<void>
+  saving?: boolean
+  error?: string | null
 }
 
-export function FiltersModal({ isOpen, onClose, filters, onApply }: FiltersModalProps) {
+export function FiltersModal({ isOpen, onClose, filters, onApply, saving = false, error }: FiltersModalProps) {
   const [localFilters, setLocalFilters] = useState<Filters>(filters)
   const [openSection, setOpenSection] = useState<string | null>("age")
+
+  useEffect(() => {
+    if (isOpen) setLocalFilters(filters)
+  }, [filters, isOpen])
 
   const handleReset = () => {
     setLocalFilters(DEFAULT_FILTERS)
   }
 
-  const handleApply = () => {
-    onApply(localFilters)
-    onClose()
+  const handleApply = async () => {
+    await onApply(localFilters)
   }
 
   const toggleSection = (section: string) => {
@@ -446,10 +449,10 @@ export function FiltersModal({ isOpen, onClose, filters, onApply }: FiltersModal
                       <div className="p-4 pt-0 space-y-1">
                         {[
                           { value: "tous", label: "Tous les projets" },
-                          { value: "immediat", label: "Prêt(e) immédiatement" },
-                          { value: "6mois", label: "Dans les 6 mois" },
-                          { value: "1an", label: "Dans l'année" },
-                          { value: "ouvert", label: "Ouvert(e) aux propositions" },
+                          { value: "pret_maintenant", label: "Prêt(e) maintenant" },
+                          { value: "1_3_ans", label: "Entre 1 et 3 ans" },
+                          { value: "plus_3_ans", label: "Plus de 3 ans" },
+                          { value: "pas_pret", label: "Pas encore prêt(e)" },
                         ].map(o => (
                           <button
                             key={o.value}
@@ -468,38 +471,30 @@ export function FiltersModal({ isOpen, onClose, filters, onApply }: FiltersModal
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Mahram validé */}
-              <div className="bg-[#F8FFFC] border border-border rounded-2xl p-4">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <span className="font-semibold text-foreground">Mahram validé uniquement</span>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setLocalFilters(f => ({ ...f, mahramValide: !f.mahramValide }))}
-                    className={`w-14 h-7 rounded-full transition-colors relative ${
-                      localFilters.mahramValide ? "bg-[#2ECC71]" : "bg-[#D0E8E4]"
-                    }`}
-                  >
-                    <motion.span
-                      layout
-                      className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm ${
-                        localFilters.mahramValide ? "right-1" : "left-1"
-                      }`}
-                    />
-                  </motion.button>
-                </label>
-              </div>
             </div>
 
             {/* Footer */}
             <div className="p-5 border-t border-border bg-white">
+              {error && (
+                <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 onClick={handleApply}
+                disabled={saving}
                 className="w-full py-4 gradient-mawada text-white rounded-2xl font-semibold shadow-lg shadow-primary/25"
               >
-                Appliquer les filtres
+                {saving ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Sauvegarde...
+                  </span>
+                ) : (
+                  "Appliquer les filtres"
+                )}
               </motion.button>
             </div>
           </motion.div>

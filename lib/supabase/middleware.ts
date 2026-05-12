@@ -70,7 +70,9 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.onboarding_complete) {
+    const editMode = request.nextUrl.searchParams.get('edit') === '1'
+
+    if (profile?.onboarding_complete && !editMode) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)

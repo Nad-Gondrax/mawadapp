@@ -1,23 +1,84 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Filter, Check } from "lucide-react"
+import { ChevronLeft, Filter, Check, Loader2 } from "lucide-react"
 import { PAYS, NIVEAUX_PRATIQUE_LABELS, NIVEAUX_ETUDES_LABELS, PROJET_MARIAGE_LABELS, SITUATION_MARITALE_LABELS } from "@/lib/mock-data"
+import { DEFAULT_FILTERS, type Filters } from "@/components/dashboard/filters-modal"
+import { getSavedPreferences, savePreferences } from "@/lib/preferences"
+
+type PreferencesForm = {
+  ville: string
+  ageMin: string
+  ageMax: string
+  paysOrigine: string
+  niveauPratique: string[]
+  niveauEtudes: string[]
+  projetMariage: string[]
+  situationMaritale: string[]
+}
+
+const DEFAULT_FORM: PreferencesForm = {
+  ville: "",
+  ageMin: "18",
+  ageMax: "60",
+  paysOrigine: "",
+  niveauPratique: [],
+  niveauEtudes: [],
+  projetMariage: [],
+  situationMaritale: [],
+}
+
+function formToFilters(form: PreferencesForm): Filters {
+  return {
+    ...DEFAULT_FILTERS,
+    ageMin: Number(form.ageMin) || DEFAULT_FILTERS.ageMin,
+    ageMax: Number(form.ageMax) || DEFAULT_FILTERS.ageMax,
+    paysOrigine: form.paysOrigine || DEFAULT_FILTERS.paysOrigine,
+    niveauPratique: form.niveauPratique[0] || DEFAULT_FILTERS.niveauPratique,
+    niveauEtude: form.niveauEtudes[0] || DEFAULT_FILTERS.niveauEtude,
+    projetMariage: form.projetMariage[0] || DEFAULT_FILTERS.projetMariage,
+  }
+}
+
+function filtersToForm(filters: Filters): PreferencesForm {
+  return {
+    ...DEFAULT_FORM,
+    ageMin: String(filters.ageMin),
+    ageMax: String(filters.ageMax),
+    paysOrigine: filters.paysOrigine === "Tous" ? "" : filters.paysOrigine,
+    niveauPratique: filters.niveauPratique === "tous" ? [] : [filters.niveauPratique],
+    niveauEtudes: filters.niveauEtude === "tous" ? [] : [filters.niveauEtude],
+    projetMariage: filters.projetMariage === "tous" ? [] : [filters.projetMariage],
+  }
+}
 
 export default function PreferencesPage() {
   const router = useRouter()
-  const [form, setForm] = useState({
-    ville: "",
-    ageMin: "18",
-    ageMax: "45",
-    paysOrigine: "",
-    niveauPratique: [] as string[],
-    niveauEtudes: [] as string[],
-    projetMariage: [] as string[],
-    situationMaritale: [] as string[],
-  })
+  const [form, setForm] = useState<PreferencesForm>(DEFAULT_FORM)
   const [applied, setApplied] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPreferences() {
+      try {
+        const data = await getSavedPreferences()
+        if (!cancelled) setForm(filtersToForm(data.filters))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadPreferences()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const toggle = (field: "niveauPratique" | "niveauEtudes" | "projetMariage" | "situationMaritale", v: string) => {
     setForm(prev => ({
@@ -28,9 +89,19 @@ export default function PreferencesPage() {
     }))
   }
 
-  const handleApply = () => {
-    setApplied(true)
-    setTimeout(() => { setApplied(false); router.push("/dashboard") }, 1200)
+  const handleApply = async () => {
+    setSaving(true)
+    setError(null)
+
+    try {
+      await savePreferences(formToFilters(form))
+      setApplied(true)
+      setTimeout(() => { setApplied(false); router.push("/dashboard") }, 800)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Impossible de sauvegarder les préférences.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -44,6 +115,13 @@ export default function PreferencesPage() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {loading && (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Chargement des préférences...
+          </div>
+        )}
+
         {/* Ville */}
         <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
           <h3 className="font-semibold text-foreground">Localisation</h3>
@@ -168,6 +246,7 @@ export default function PreferencesPage() {
         {/* Apply button */}
         <button
           onClick={handleApply}
+          disabled={saving}
           className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-lg transition-all shadow-lg ${
             applied
               ? "bg-emerald-600 text-white shadow-emerald-300"
@@ -176,12 +255,19 @@ export default function PreferencesPage() {
         >
           {applied ? (
             <><Check className="w-5 h-5" /> Filtres appliqués !</>
+          ) : saving ? (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Sauvegarde...</>
           ) : (
             <><Filter className="w-5 h-5" /> Appliquer les filtres</>
           )}
         </button>
+        {error && (
+          <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         <button
-          onClick={() => setForm({ ville: "", ageMin: "18", ageMax: "45", paysOrigine: "", niveauPratique: [], niveauEtudes: [], projetMariage: [], situationMaritale: [] })}
+          onClick={() => setForm(DEFAULT_FORM)}
           className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Réinitialiser les filtres
@@ -193,7 +279,7 @@ export default function PreferencesPage() {
 
 function CheckOption({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
-    <label className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
+    <label onClick={onChange} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
       checked ? "border-primary bg-primary/5" : "border-border hover:bg-secondary"
     }`}>
       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${

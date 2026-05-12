@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Shield, CheckCircle, Clock, Mail, Phone, ExternalLink } from "lucide-react"
+import { ChevronLeft, Shield, CheckCircle, Clock, Mail, Phone } from "lucide-react"
 import { CURRENT_USER } from "@/lib/mock-data"
 
 export default function MonMahramPage() {
@@ -87,19 +87,13 @@ export default function MonMahramPage() {
           </ul>
         </div>
 
-        {/* Mahram interface link */}
+        {/* Mahram interface info */}
         <div className="bg-card rounded-2xl border border-border p-5">
           <h3 className="font-semibold text-foreground mb-2">Interface du mahram</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Votre mahram peut accéder à son interface dédiée pour consulter et valider les matchs.
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Il n&apos;y a pas de lien permanent vers l&apos;interface Mahram. Pour des raisons de sécurité,
+            Mawada envoie automatiquement un lien unique par email au Mahram quand un match mutuel doit être validé.
           </p>
-          <button
-            onClick={() => router.push("/mahram-interface")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Voir l&apos;interface mahram
-          </button>
         </div>
 
         <button

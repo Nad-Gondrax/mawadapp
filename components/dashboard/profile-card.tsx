@@ -1,26 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { MapPin, Globe, BookOpen, Heart, X, MessageCircle, CheckCircle } from "lucide-react"
+import { MapPin, Globe, BookOpen, Heart, X, CheckCircle } from "lucide-react"
 import type { UserProfile } from "@/lib/types"
 import { NIVEAUX_PRATIQUE_LABELS, PROJET_MARIAGE_LABELS } from "@/lib/mock-data"
-import { AvatarPlaceholder } from "@/components/ui/avatar-placeholder"
+import { addLike } from "@/lib/supabase-queries"
+import { getUserFacingError } from "@/lib/user-facing-errors"
+
+type MahramRequestResult = {
+  email?: {
+    sent?: boolean
+    reason?: string
+  }
+} | null
 
 interface LikeModalProps {
   profile: UserProfile
+  loading?: boolean
+  error?: string | null
   onClose: () => void
-  onLike: (type: "mosque" | "phrase") => void
+  onLike: () => void
 }
 
-function LikeModal({ profile, onClose, onLike }: LikeModalProps) {
+function LikeModal({ profile, loading = false, error, onClose, onLike }: LikeModalProps) {
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pb-24 sm:pb-4"
     >
       <div className="absolute inset-0 bg-[#102A2A]/40 backdrop-blur-sm" onClick={onClose} />
       <motion.div 
@@ -28,7 +38,7 @@ function LikeModal({ profile, onClose, onLike }: LikeModalProps) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 50, scale: 0.95 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden"
+        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm max-h-[calc(100dvh-7rem)] overflow-y-auto"
       >
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
@@ -51,30 +61,23 @@ function LikeModal({ profile, onClose, onLike }: LikeModalProps) {
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              onClick={() => onLike("mosque")}
-              className="w-full flex items-center gap-4 p-4 border-2 border-border rounded-2xl hover:border-primary hover:bg-[#E7F7F4] transition-all"
-            >
-              <span className="text-3xl">🕌</span>
-              <div className="text-left">
-                <p className="font-semibold text-sm text-foreground">Envoyer un symbole</p>
-                <p className="text-xs text-muted-foreground">Un geste simple et respectueux</p>
-              </div>
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => onLike("phrase")}
+              onClick={onLike}
+              disabled={loading}
               className="w-full flex items-center gap-4 p-4 border-2 border-border rounded-2xl hover:border-[#FF6B6B] hover:bg-[#FF6B6B]/5 transition-all"
             >
               <div className="w-12 h-12 rounded-xl bg-[#FF6B6B]/10 flex items-center justify-center">
                 <Heart className="w-6 h-6 text-[#FF6B6B]" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-sm text-foreground">Envoyer un message</p>
-                <p className="text-xs text-muted-foreground italic">&ldquo;Votre profil m&apos;inspire confiance&rdquo;</p>
+                <p className="font-semibold text-sm text-foreground">Ton profil m&apos;intéresse</p>
+                <p className="text-xs text-muted-foreground">Si la personne vous like aussi, vous pourrez échanger, sous supervision du Mahram.</p>
               </div>
             </motion.button>
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </motion.div>
@@ -85,18 +88,51 @@ function LikeModal({ profile, onClose, onLike }: LikeModalProps) {
 interface ProfileCardProps {
   profile: UserProfile
   showFullInfo?: boolean
+  initiallyLiked?: boolean
+  photoAccessApproved?: boolean
 }
 
-export function ProfileCard({ profile, showFullInfo = false }: ProfileCardProps) {
+export function ProfileCard({ profile, initiallyLiked = false, photoAccessApproved = false }: ProfileCardProps) {
   const [showLikeModal, setShowLikeModal] = useState(false)
-  const [liked, setLiked] = useState(false)
+  const [liked, setLiked] = useState(initiallyLiked)
+  const [likeSaving, setLikeSaving] = useState(false)
+  const [likeError, setLikeError] = useState<string | null>(null)
+  const [matched, setMatched] = useState(false)
+  const [matchWarning, setMatchWarning] = useState<string | null>(null)
   const router = useRouter()
 
   const mahramValidated = profile.mahram?.statut === "valide"
+  const photoHidden = Boolean(profile.photoBlurred) && !photoAccessApproved
+  const shouldBlurPhoto = !mahramValidated || photoHidden
 
-  const handleLike = () => {
-    setLiked(true)
-    setShowLikeModal(false)
+  useEffect(() => {
+    setLiked(initiallyLiked)
+  }, [initiallyLiked])
+
+  useEffect(() => {
+    if (!matched) return
+    const timeout = window.setTimeout(() => setMatched(false), 4500)
+    return () => window.clearTimeout(timeout)
+  }, [matched])
+
+  const handleLike = async () => {
+    setLikeSaving(true)
+    setLikeError(null)
+
+    try {
+      const result = await addLike(profile.id)
+      const mahramRequest = result.mahramRequest as MahramRequestResult
+      const mahramEmailFailed = mahramRequest?.email?.sent === false && mahramRequest.email.reason !== "No mahram email"
+
+      setLiked(true)
+      setMatched(result.matched)
+      setMatchWarning(result.matched && (!mahramRequest || mahramEmailFailed) ? getUserFacingError(new Error("mahram request failed"), "match") : null)
+      setShowLikeModal(false)
+    } catch (error) {
+      setLikeError(getUserFacingError(error, "like"))
+    } finally {
+      setLikeSaving(false)
+    }
   }
 
   return (
@@ -113,14 +149,16 @@ export function ProfileCard({ profile, showFullInfo = false }: ProfileCardProps)
           <img
             src={profile.photo || (profile.genre === "femme" ? "/profil_femme.png" : "/profil_homme.png")}
             alt={`Profil de ${profile.prenom}`}
-            className={`w-full h-full object-cover transition-all duration-500 ${!mahramValidated ? "blur-md scale-105" : ""}`}
+            className={`w-full h-full object-cover transition-all duration-500 ${shouldBlurPhoto ? "blur-md scale-105" : ""}`}
           />
           
-          {!mahramValidated && (
+          {shouldBlurPhoto && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#102A2A]/10">
               <div className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-2">
                 <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-foreground">En attente du mahram</span>
+                <span className="text-sm font-medium text-foreground">
+                  {!mahramValidated ? "En attente du mahram" : "Photo privée"}
+                </span>
               </div>
             </div>
           )}
@@ -217,11 +255,18 @@ export function ProfileCard({ profile, showFullInfo = false }: ProfileCardProps)
         {showLikeModal && (
           <LikeModal
             profile={profile}
+            loading={likeSaving}
+            error={likeError}
             onClose={() => setShowLikeModal(false)}
             onLike={handleLike}
           />
         )}
       </AnimatePresence>
+      {matched && (
+        <div className="fixed inset-x-4 bottom-20 z-50 mx-auto max-w-sm rounded-2xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-lg">
+          {matchWarning || "Match réciproque détecté. Retrouvez-le dans vos matchs."}
+        </div>
+      )}
     </>
   )
 }

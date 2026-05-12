@@ -99,6 +99,7 @@ export interface UserProfile {
   ville: string
   paysOrigine: string
   photo?: string
+  photoBlurred?: boolean
   traits: string[]
   taille: number
   silhouette: Silhouette

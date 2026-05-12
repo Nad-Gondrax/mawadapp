@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { isUserAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin-client"
 import { NextResponse } from "next/server"
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
     )
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Total inscrits
   const { count: totalUsers } = await supabase
@@ -46,6 +46,24 @@ export async function GET() {
     .from("profiles")
     .select("*", { count: "exact", head: true })
     .eq("mahram_statut", "valide")
+
+  const { count: demandesMahramEnAttente } = await supabase
+    .from("mahram_match_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending")
+
+  const { count: demandesMahramValidees } = await supabase
+    .from("mahram_match_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "approved")
+
+  let signalementsOuverts = 0
+  const { count: reportsCount, error: reportsError } = await supabase
+    .from("profile_reports")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "open")
+
+  if (!reportsError) signalementsOuverts = reportsCount ?? 0
 
   // Nouveaux cette semaine (7 jours)
   const since7Days = new Date()
@@ -102,6 +120,9 @@ export async function GET() {
     femmes: femmes ?? 0,
     mahramEnAttente: mahramEnAttente ?? 0,
     mahramValide: mahramValide ?? 0,
+    demandesMahramEnAttente: demandesMahramEnAttente ?? 0,
+    demandesMahramValidees: demandesMahramValidees ?? 0,
+    signalementsOuverts,
     nouveauxSemaine: nouveauxSemaine ?? 0,
     nouveauxAujourdhui: nouveauxAujourdhui ?? 0,
     inscriptionsParJour,
