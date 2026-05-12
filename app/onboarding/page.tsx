@@ -1579,7 +1579,6 @@ export default function OnboardingPage() {
       mahram_relation: data.mahramRelation || data.mahramType || null,
       mahram_email: data.mahramEmail || null,
       mahram_telephone: data.mahramTelephone || null,
-      mahram_statut: data.genre === "femme" ? "valide" : null,
       onboarding_complete: true,
     }
 
