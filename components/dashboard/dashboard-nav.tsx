@@ -232,42 +232,42 @@ export function DashboardBottomNav() {
   }
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2 pb-safe">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]">
+      <div className="flex h-16 max-w-lg items-center justify-around mx-auto px-2">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
           const active = pathname === href
           return (
             <Link
               key={href} 
               href={href}
-              className="relative flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-xl transition-all"
+              className="relative flex h-14 w-16 flex-col items-center justify-center gap-1 rounded-xl transition-all"
             >
               <motion.div
                 whileTap={{ scale: 0.9 }}
-                className={`p-2 rounded-xl ${active ? "bg-primary/10" : ""}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${active ? "bg-primary/10" : ""}`}
               >
                 <Icon className={`w-5 h-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
               </motion.div>
-              <span className={`text-[10px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>
+              <span className={`text-[10px] font-medium leading-none ${active ? "text-primary" : "text-muted-foreground"}`}>
                 {label}
               </span>
               {label === "Matchs" && matchActivityCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#FF6B6B] rounded-full" />
+                <span className="absolute top-2 right-3 w-2 h-2 bg-[#FF6B6B] rounded-full" />
               )}
               {label === "Messages" && messagesActivityCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#FF6B6B] rounded-full" />
+                <span className="absolute top-2 right-3 w-2 h-2 bg-[#FF6B6B] rounded-full" />
               )}
             </Link>
           )
         })}
         <button
           onClick={handleSignOut}
-          className="relative flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-xl transition-all"
+          className="relative flex h-14 w-16 flex-col items-center justify-center gap-1 rounded-xl transition-all"
         >
-          <motion.div whileTap={{ scale: 0.9 }} className="p-2 rounded-xl">
+          <motion.div whileTap={{ scale: 0.9 }} className="flex h-8 w-8 items-center justify-center rounded-full">
             <LogOut className="w-5 h-5 text-muted-foreground" />
           </motion.div>
-          <span className="text-[10px] font-medium text-muted-foreground">
+          <span className="text-[10px] font-medium leading-none text-muted-foreground">
             Sortir
           </span>
         </button>
