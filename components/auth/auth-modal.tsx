@@ -23,6 +23,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const router = useRouter()
+  const emailAlreadyUsed = mode === "register" && error?.toLowerCase().includes("déjà utilisé")
 
   useEffect(() => {
     setMode(defaultMode)
@@ -47,6 +48,12 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
       setSuccess("Un email de reinitialisation vous a ete envoye. Verifiez votre boite mail.")
     }
     setLoading(false)
+  }
+
+  const switchMode = (nextMode: "login" | "register" | "forgot") => {
+    setMode(nextMode)
+    setError(null)
+    setSuccess(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,12 +115,12 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto p-3 sm:flex sm:items-center sm:justify-center sm:p-4">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#102A2A]/50 backdrop-blur-sm" 
+            className="fixed inset-0 bg-[#102A2A]/50 backdrop-blur-sm" 
             onClick={onClose} 
           />
           <motion.div 
@@ -121,7 +128,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="relative my-3 bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden sm:my-0"
           >
             {/* Header with gradient */}
             <div className="gradient-mawada px-6 py-8 text-center relative overflow-hidden">
@@ -192,8 +199,26 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
 
               {/* Erreur / Succès */}
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
-                  {error}
+                <div className="space-y-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+                  <p>{error}</p>
+                  {emailAlreadyUsed && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => switchMode("login")}
+                        className="font-semibold text-primary underline-offset-4 hover:underline"
+                      >
+                        Se connecter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => switchMode("forgot")}
+                        className="font-semibold text-primary underline-offset-4 hover:underline"
+                      >
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               {success && (
@@ -241,7 +266,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
                   <div className="text-right">
                     <button 
                       type="button" 
-                      onClick={() => { setMode("forgot"); setError(null); setSuccess(null); }}
+                      onClick={() => switchMode("forgot")}
                       className="text-sm text-primary hover:underline"
                     >
                       Mot de passe oublié ?
@@ -271,20 +296,20 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
                 {mode === "register" ? (
                   <>
                     Déjà inscrit ?{" "}
-                    <button onClick={() => { setMode("login"); setError(null); setSuccess(null); }} className="text-primary font-semibold hover:underline">
+                    <button onClick={() => switchMode("login")} className="text-primary font-semibold hover:underline">
                       Connexion
                     </button>
                   </>
                 ) : mode === "forgot" ? (
                   <>
-                    <button onClick={() => { setMode("login"); setError(null); setSuccess(null); }} className="text-primary font-semibold hover:underline">
+                    <button onClick={() => switchMode("login")} className="text-primary font-semibold hover:underline">
                       Retour à la connexion
                     </button>
                   </>
                 ) : (
                   <>
                     Pas encore inscrit ?{" "}
-                    <button onClick={() => { setMode("register"); setError(null); setSuccess(null); }} className="text-primary font-semibold hover:underline">
+                    <button onClick={() => switchMode("register")} className="text-primary font-semibold hover:underline">
                       Créer un compte
                     </button>
                   </>
