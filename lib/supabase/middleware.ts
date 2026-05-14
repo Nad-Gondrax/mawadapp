@@ -2,6 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { hasSupabaseEnv } from './env'
 
+function isSubscriptionActive(subscription?: {
+  status?: string | null
+  stripe_current_period_end?: string | null
+} | null) {
+  if (!subscription) return false
+  if (!['active', 'trialing'].includes(subscription.status ?? '')) return false
+  if (!subscription.stripe_current_period_end) return true
+  return new Date(subscription.stripe_current_period_end).getTime() > Date.now()
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -35,7 +45,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Routes protégées — redirige vers accueil si non connecté
-  const protectedPaths = ['/dashboard', '/chat', '/profil', '/admin']
+  const protectedPaths = ['/dashboard', '/chat', '/profil', '/admin', '/abonnement']
   const isProtected = protectedPaths.some(path => pathname.startsWith(path))
 
   if (isProtected && !user) {
@@ -45,7 +55,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Si connecté sur /dashboard ou /chat ou /profil → vérifier onboarding
-  const requiresOnboarding = ['/dashboard', '/chat', '/profil', '/admin']
+  const requiresOnboarding = ['/dashboard', '/chat', '/profil', '/admin', '/abonnement']
   const requiresCheck = requiresOnboarding.some(path => pathname.startsWith(path))
 
   if (user && requiresCheck) {
@@ -59,6 +69,22 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding'
       return NextResponse.redirect(url)
+    }
+
+    const requiresSubscription = ['/dashboard', '/chat'].some(path => pathname.startsWith(path))
+
+    if (profile?.onboarding_complete && requiresSubscription) {
+      const { data: subscription, error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .select('status, stripe_current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!subscriptionError && !isSubscriptionActive(subscription)) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/abonnement'
+        return NextResponse.redirect(url)
+      }
     }
   }
 

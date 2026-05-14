@@ -6,7 +6,7 @@ import {
   Users, Shield, TrendingUp, ChevronLeft,
   Check, UserCheck, Ban, BarChart3,
   RefreshCw, ChevronLeft as Prev, ChevronRight as Next,
-  AlertTriangle, Clock, Loader2, Mail, FileWarning
+  AlertTriangle, Clock, Loader2, Mail, FileWarning, TicketPercent
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -15,7 +15,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AdminTab = "stats" | "users" | "mahrams" | "reports"
+type AdminTab = "stats" | "users" | "mahrams" | "reports" | "promoCodes"
 
 interface Stats {
   totalUsers: number
@@ -77,6 +77,21 @@ interface AdminReport {
   created_at: string
   reporter: AdminProfileSummary | null
   reportedUser: AdminProfileSummary | null
+}
+
+interface AdminPromoCode {
+  id: string
+  code: string
+  discount_type: "percent" | "amount" | "free"
+  discount_value: number
+  duration: "once" | "forever" | "repeating"
+  duration_in_months: number | null
+  active: boolean
+  max_redemptions: number | null
+  redeemed_count: number
+  expires_at: string | null
+  stripe_promotion_code_id: string | null
+  created_at: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -175,6 +190,21 @@ export default function AdminPage() {
   const [reportsLoading, setReportsLoading] = useState(false)
   const [reportsSetupRequired, setReportsSetupRequired] = useState(false)
   const [updatingReportId, setUpdatingReportId] = useState<string | null>(null)
+  const [promoCodes, setPromoCodes] = useState<AdminPromoCode[]>([])
+  const [promoCodesLoading, setPromoCodesLoading] = useState(false)
+  const [promoCodesSetupRequired, setPromoCodesSetupRequired] = useState(false)
+  const [promoCodeError, setPromoCodeError] = useState<string | null>(null)
+  const [creatingPromoCode, setCreatingPromoCode] = useState(false)
+  const [updatingPromoCodeId, setUpdatingPromoCodeId] = useState<string | null>(null)
+  const [promoForm, setPromoForm] = useState({
+    code: "",
+    discountType: "percent" as "percent" | "amount" | "free",
+    discountValue: 20,
+    duration: "once" as "once" | "forever" | "repeating",
+    durationInMonths: 3,
+    maxRedemptions: "",
+    expiresAt: "",
+  })
 
   const totalPages = Math.ceil(usersTotal / 20)
 
@@ -250,6 +280,24 @@ export default function AdminPage() {
     }
   }, [])
 
+  const fetchPromoCodes = useCallback(async () => {
+    setPromoCodesLoading(true)
+    setPromoCodeError(null)
+    try {
+      const res = await fetch("/api/admin/promo-codes")
+      const data = await res.json()
+
+      if (res.ok) {
+        setPromoCodes(data.promoCodes ?? [])
+        setPromoCodesSetupRequired(Boolean(data.setupRequired))
+      } else {
+        setPromoCodeError(data.error || "Impossible de charger les codes promo.")
+      }
+    } finally {
+      setPromoCodesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (authorized) fetchStats()
   }, [authorized, fetchStats])
@@ -265,6 +313,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (authorized && tab === "reports") fetchReports()
   }, [authorized, tab, fetchReports])
+
+  useEffect(() => {
+    if (authorized && tab === "promoCodes") fetchPromoCodes()
+  }, [authorized, tab, fetchPromoCodes])
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -296,6 +348,66 @@ export default function AdminPage() {
     }
   }
 
+  const createPromoCode = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setCreatingPromoCode(true)
+    setPromoCodeError(null)
+
+    try {
+      const res = await fetch("/api/admin/promo-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoForm.code,
+          discountType: promoForm.discountType,
+          discountValue: Number(promoForm.discountValue),
+          duration: promoForm.duration,
+          durationInMonths: promoForm.duration === "repeating" ? Number(promoForm.durationInMonths) : null,
+          maxRedemptions: promoForm.maxRedemptions ? Number(promoForm.maxRedemptions) : null,
+          expiresAt: promoForm.expiresAt || null,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setPromoCodeError(data.error || "Impossible de créer ce code promo.")
+        return
+      }
+
+      setPromoCodes(prev => [data.promoCode, ...prev])
+      setPromoForm(prev => ({ ...prev, code: "", maxRedemptions: "", expiresAt: "" }))
+    } finally {
+      setCreatingPromoCode(false)
+    }
+  }
+
+  const updatePromoCodeActive = async (promoCode: AdminPromoCode, active: boolean) => {
+    setUpdatingPromoCodeId(promoCode.id)
+    setPromoCodeError(null)
+
+    try {
+      const res = await fetch("/api/admin/promo-codes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: promoCode.id,
+          active,
+          stripePromotionCodeId: promoCode.stripe_promotion_code_id,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setPromoCodeError(data.error || "Impossible de modifier ce code promo.")
+        return
+      }
+
+      setPromoCodes(prev => prev.map(item => item.id === promoCode.id ? { ...item, active } : item))
+    } finally {
+      setUpdatingPromoCodeId(null)
+    }
+  }
+
   // ── Tabs config ─────────────────────────────────────────────────────────────
 
   const TABS = [
@@ -303,6 +415,7 @@ export default function AdminPage() {
     { id: "users",   label: "Utilisateurs", icon: <Users className="w-4 h-4" /> },
     { id: "mahrams", label: "Mahrams",       icon: <Shield className="w-4 h-4" /> },
     { id: "reports", label: "Signalements",  icon: <FileWarning className="w-4 h-4" /> },
+    { id: "promoCodes", label: "Codes promo", icon: <TicketPercent className="w-4 h-4" /> },
   ]
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -746,6 +859,188 @@ export default function AdminPage() {
                           </button>
                         )}
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── PROMO CODES TAB ──────────────────────────────────────────────── */}
+        {tab === "promoCodes" && (
+          <div className="space-y-4">
+            {promoCodesSetupRequired && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Les tables d&apos;abonnement ne sont pas encore installées dans Supabase. Lance le script <span className="font-semibold">scripts/09_subscriptions_promos.sql</span>.
+              </div>
+            )}
+
+            {promoCodeError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {promoCodeError}
+              </div>
+            )}
+
+            <form onSubmit={createPromoCode} className="bg-card rounded-2xl border border-border p-5 shadow-premium space-y-4">
+              <div className="flex items-center gap-2">
+                <TicketPercent className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm">Créer un code promo</h3>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Code</span>
+                  <input
+                    value={promoForm.code}
+                    onChange={event => setPromoForm(prev => ({ ...prev, code: event.target.value }))}
+                    placeholder="BIENVENUE"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                    required
+                  />
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Type</span>
+                  <select
+                    value={promoForm.discountType}
+                    onChange={event => setPromoForm(prev => ({ ...prev, discountType: event.target.value as typeof promoForm.discountType }))}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                  >
+                    <option value="percent">Pourcentage</option>
+                    <option value="amount">Montant en euros</option>
+                    <option value="free">Accès gratuit</option>
+                  </select>
+                </label>
+
+                {promoForm.discountType !== "free" && (
+                  <label className="space-y-1 text-sm">
+                    <span className="text-muted-foreground">
+                      {promoForm.discountType === "percent" ? "Réduction (%)" : "Réduction (€)"}
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={promoForm.discountType === "percent" ? 100 : undefined}
+                      step={promoForm.discountType === "amount" ? "0.01" : "1"}
+                      value={promoForm.discountValue}
+                      onChange={event => setPromoForm(prev => ({ ...prev, discountValue: Number(event.target.value) }))}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                      required
+                    />
+                  </label>
+                )}
+              </div>
+
+              {promoForm.discountType !== "free" && (
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="space-y-1 text-sm">
+                    <span className="text-muted-foreground">Durée</span>
+                    <select
+                      value={promoForm.duration}
+                      onChange={event => setPromoForm(prev => ({ ...prev, duration: event.target.value as typeof promoForm.duration }))}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                    >
+                      <option value="once">Une seule facture</option>
+                      <option value="forever">Permanent</option>
+                      <option value="repeating">Pendant quelques mois</option>
+                    </select>
+                  </label>
+
+                  {promoForm.duration === "repeating" && (
+                    <label className="space-y-1 text-sm">
+                      <span className="text-muted-foreground">Nombre de mois</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={promoForm.durationInMonths}
+                        onChange={event => setPromoForm(prev => ({ ...prev, durationInMonths: Number(event.target.value) }))}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                        required
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Nombre max d&apos;utilisations</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={promoForm.maxRedemptions}
+                    onChange={event => setPromoForm(prev => ({ ...prev, maxRedemptions: event.target.value }))}
+                    placeholder="Illimité"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                  />
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-muted-foreground">Expiration</span>
+                  <input
+                    type="date"
+                    value={promoForm.expiresAt}
+                    onChange={event => setPromoForm(prev => ({ ...prev, expiresAt: event.target.value }))}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+
+              <button
+                disabled={creatingPromoCode}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {creatingPromoCode ? "Création..." : "Ajouter le code"}
+              </button>
+            </form>
+
+            <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-premium">
+              <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                <TicketPercent className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm">Codes promo existants</h3>
+              </div>
+
+              {promoCodesLoading ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+                </div>
+              ) : promoCodes.length === 0 ? (
+                <div className="p-8 text-center">
+                  <TicketPercent className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucun code promo pour l&apos;instant.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {promoCodes.map(promoCode => (
+                    <div key={promoCode.id} className="px-5 py-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-foreground text-sm">{promoCode.code}</p>
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${promoCode.active ? "bg-emerald-100 text-emerald-700" : "bg-secondary text-muted-foreground"}`}>
+                            {promoCode.active ? "Actif" : "Inactif"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {promoCode.discount_type === "free"
+                            ? "Accès gratuit"
+                            : promoCode.discount_type === "percent"
+                              ? `${promoCode.discount_value}% de réduction`
+                              : `${promoCode.discount_value}€ de réduction`}
+                          {" · "}
+                          {promoCode.redeemed_count}{promoCode.max_redemptions ? ` / ${promoCode.max_redemptions}` : ""} utilisation(s)
+                          {promoCode.expires_at ? ` · expire le ${new Date(promoCode.expires_at).toLocaleDateString("fr-FR")}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => updatePromoCodeActive(promoCode, !promoCode.active)}
+                        disabled={updatingPromoCodeId === promoCode.id}
+                        className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-60 ${
+                          promoCode.active ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {promoCode.active ? "Désactiver" : "Réactiver"}
+                      </button>
                     </div>
                   ))}
                 </div>

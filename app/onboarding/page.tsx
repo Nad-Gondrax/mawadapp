@@ -1592,7 +1592,7 @@ export default function OnboardingPage() {
       return
     }
 
-    router.push("/dashboard")
+    router.push("/abonnement")
   }
 
   const renderStep = () => {
