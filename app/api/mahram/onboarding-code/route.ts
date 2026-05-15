@@ -1,5 +1,6 @@
 import { createHmac, randomInt, timingSafeEqual } from "crypto"
 import { NextResponse } from "next/server"
+import { createClient as createServerClient } from "@/lib/supabase/server"
 
 const CODE_TTL_MS = 15 * 60 * 1000
 
@@ -86,19 +87,19 @@ async function sendCodeEmail(email: string, relation: string, code: string) {
         "",
         `Votre code de validation Mahram est : ${code}`,
         "",
-        `Relation indiquee : ${relation}`,
+        `Relation indiquée : ${relation}`,
         "Ce code expire dans 15 minutes.",
         "",
-        "Si vous n'etes pas a l'origine de cette demande, vous pouvez ignorer cet email.",
+        "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.",
       ].join("\n"),
       html: `
         <div style="font-family:Arial,sans-serif;color:#102a27;line-height:1.6">
           <p>Salam alaykoum,</p>
           <p>Votre code de validation Mahram est :</p>
           <p style="font-size:32px;font-weight:800;letter-spacing:8px;margin:18px 0;color:#009688">${code}</p>
-          <p>Relation indiquee : <strong>${safeRelation}</strong></p>
+          <p>Relation indiquée : <strong>${safeRelation}</strong></p>
           <p style="color:#64748b;font-size:13px">Ce code expire dans 15 minutes.</p>
-          <p style="color:#64748b;font-size:13px">Si vous n'etes pas a l'origine de cette demande, vous pouvez ignorer cet email.</p>
+          <p style="color:#64748b;font-size:13px">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
         </div>
       `,
     }),
@@ -119,6 +120,17 @@ export async function POST(request: Request) {
 
   if (!isValidEmail(normalizedEmail) || !normalizedRelation) {
     return NextResponse.json({ error: "Email ou type de Mahram invalide" }, { status: 400 })
+  }
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const userEmail = user?.email?.trim().toLowerCase()
+
+  if (userEmail && userEmail === normalizedEmail) {
+    return NextResponse.json(
+      { error: "L'email du Mahram doit être différent de votre email de connexion." },
+      { status: 400 },
+    )
   }
 
   const code = String(randomInt(1000, 10000))

@@ -45,7 +45,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
     if (error) {
       setError(getUserFacingError(error, "passwordReset"))
     } else {
-      setSuccess("Un email de reinitialisation vous a ete envoye. Verifiez votre boite mail.")
+      setSuccess("Un email de réinitialisation vous a été envoyé. Vérifiez votre boîte mail.")
     }
     setLoading(false)
   }
@@ -99,17 +99,25 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
 
   const handleSocialLogin = async (provider: "google" | "apple") => {
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-          `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) setError(getUserFacingError(error, "login"))
-    setLoading(false)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
+            `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) setError(getUserFacingError(error, "login"))
+    } catch (error) {
+      setError(getUserFacingError(error, "login"))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

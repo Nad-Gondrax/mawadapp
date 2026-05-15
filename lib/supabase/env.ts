@@ -7,6 +7,6 @@ export function hasSupabaseEnv() {
 
 export function missingSupabaseEnvError() {
   return new Error(
-    "Supabase n'est pas encore configure. Ajoute NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local.",
+    "Supabase n'est pas encore configuré. Ajoute NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local.",
   )
 }

@@ -58,6 +58,13 @@ export function getUserFacingError(error: unknown, context: ErrorContext) {
     return "Veuillez confirmer votre email avant de vous connecter."
   }
 
+  if (
+    (message.includes("provider") || message.includes("oauth")) &&
+    (message.includes("enabled") || message.includes("unsupported") || message.includes("not found") || message.includes("invalid"))
+  ) {
+    return "Cette connexion n'est pas encore configurée côté Supabase. Activez le fournisseur dans l'authentification."
+  }
+
   if (message.includes("user already registered") || message.includes("already registered")) {
     return "Cet email est déjà utilisé. Essayez de vous connecter."
   }

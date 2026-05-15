@@ -109,6 +109,7 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
   mahramValidated: boolean;
   onMahramValidate: () => void;
 }) {
+  const [currentUserEmail, setCurrentUserEmail] = useState("")
   const [villeQuery, setVilleQuery] = useState(data.ville || "")
   const [villeOpen, setVilleOpen] = useState(false)
   const [codeSent, setCodeSent] = useState(false)
@@ -119,6 +120,24 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
   const [codeVerifying, setCodeVerifying] = useState(false)
   const codeRefs = useRef<(HTMLInputElement | null)[]>([])
   const filtered = VILLES_FRANCE.filter(v => v.toLowerCase().includes(villeQuery.toLowerCase()))
+  const normalizeEmail = (value: string) => value.trim().toLowerCase()
+  const mahramEmailSameAsUser = Boolean(
+    currentUserEmail &&
+    data.mahramEmail &&
+    normalizeEmail(currentUserEmail) === normalizeEmail(data.mahramEmail),
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    createClient().auth.getUser().then(({ data: userData }) => {
+      if (!cancelled) setCurrentUserEmail(userData.user?.email || "")
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleCodeChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return
@@ -160,6 +179,10 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
 
   const handleSendCode = async () => {
     if (!data.mahramEmail || !data.mahramType) return
+    if (mahramEmailSameAsUser) {
+      setCodeError("L'email du Mahram doit être différent de votre email de connexion.")
+      return
+    }
 
     setCodeSending(true)
     setCodeError(null)
@@ -284,13 +307,18 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
               disabled={mahramValidated}
               className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
+            {mahramEmailSameAsUser && (
+              <p className="mt-2 text-xs text-destructive">
+                L&apos;email du Mahram doit être différent de votre email de connexion.
+              </p>
+            )}
           </div>
 
           {!codeSent && !mahramValidated && (
             <button
               type="button"
               onClick={handleSendCode}
-              disabled={!data.mahramEmail || !data.mahramType || codeSending}
+              disabled={!data.mahramEmail || !data.mahramType || mahramEmailSameAsUser || codeSending}
               className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {codeSending ? "Envoi du code..." : "Envoyer le code au Mahram"}
@@ -732,7 +760,7 @@ function Step6({ data, onChange }: { data: any; onChange: (d: any) => void }) {
     <div className="space-y-6">
       <div className="space-y-3">
         <label className="block text-sm font-semibold text-foreground">3 choses qui m&apos;attirent *</label>
-        <p className="text-xs text-muted-foreground">2 reponses minimum obligatoires</p>
+        <p className="text-xs text-muted-foreground">2 réponses minimum obligatoires</p>
         {attraits.map((val: string, i: number) => (
           <input
             key={i} type="text" value={val}
@@ -744,7 +772,7 @@ function Step6({ data, onChange }: { data: any; onChange: (d: any) => void }) {
       </div>
       <div className="space-y-3">
         <label className="block text-sm font-semibold text-foreground">3 choses qui me repoussent *</label>
-        <p className="text-xs text-muted-foreground">2 reponses minimum obligatoires</p>
+        <p className="text-xs text-muted-foreground">2 réponses minimum obligatoires</p>
         {repoussants.map((val: string, i: number) => (
           <input
             key={i} type="text" value={val}
@@ -828,7 +856,7 @@ function Step7({ data, onChange }: { data: any; onChange: (d: any) => void }) {
               <img
                 src={data.photo}
                 alt="Photo de profil"
-                className="w-24 h-24 rounded-full object-cover mx-auto"
+                className={`w-24 h-24 rounded-full object-cover mx-auto transition-all ${data.photoBlurred ? "blur-sm scale-105" : ""}`}
               />
               <p className="text-sm text-primary font-medium">Photo chargée - cliquer pour changer</p>
             </div>
@@ -853,6 +881,32 @@ function Step7({ data, onChange }: { data: any; onChange: (d: any) => void }) {
           )}
         </div>
         {uploadError && <p className="text-xs text-destructive mt-2">{uploadError}</p>}
+        {data.photo && (
+          <div className="mt-4 rounded-2xl border border-border bg-[#F8FFFC] p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Flouter ma photo</p>
+                <p className="text-xs text-muted-foreground">
+                  Vous pourrez accepter ou refuser les demandes de défloutage.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange({ ...data, photoBlurred: !data.photoBlurred })}
+                aria-pressed={Boolean(data.photoBlurred)}
+                className={`relative h-8 w-14 rounded-full transition-colors ${
+                  data.photoBlurred ? "bg-primary" : "bg-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                    data.photoBlurred ? "translate-x-7" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <div>
         <div className="flex justify-between items-center mb-2">
@@ -874,7 +928,7 @@ function Step7({ data, onChange }: { data: any; onChange: (d: any) => void }) {
           className="w-full px-4 py-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
         <p className={`text-xs mt-1 ${charCount < 50 ? "text-destructive" : "text-muted-foreground"}`}>
-          50 caracteres minimum obligatoires * ({charCount < 50 ? `encore ${50 - charCount} caracteres` : "OK"})
+          50 caractères minimum obligatoires * ({charCount < 50 ? `encore ${50 - charCount} caractères` : "OK"})
         </p>
       </div>
     </div>
@@ -1288,7 +1342,7 @@ function Step14({ data, onChange }: { data: any; onChange: (d: any) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Quand il y a un desaccord, je suis plutot... <strong>2 choix minimum obligatoires *</strong> (4 maximum)
+        Quand il y a un désaccord, je suis plutôt... <strong>2 choix minimum obligatoires *</strong> (4 maximum)
       </p>
       <div className="flex flex-wrap gap-2">
         {OPTIONS.map(opt => {
@@ -1387,6 +1441,7 @@ export default function OnboardingPage() {
         ville: profile.ville || "",
         paysOrigine: profile.pays_origine === "France" ? "France" : profile.pays_origine ? "Non française" : "",
         photo: profile.photo || "",
+        photoBlurred: Boolean(profile.photo_blurred),
         traits: profile.traits || [],
         stylesVestimentaires: profile.style_vestimentaire || [],
         situationPro: profile.situation_pro || "",
@@ -1545,6 +1600,7 @@ export default function OnboardingPage() {
       ville: data.ville,
       pays_origine: data.paysOrigine,
       photo: data.photo || null,
+      photo_blurred: Boolean(data.photoBlurred),
       taille: data.taille ? Number(data.taille) : null,
       silhouette: data.silhouette || null,
       barbe: data.genre === "homme" ? data.barbe : null,

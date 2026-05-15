@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const { token, decision } = await request.json()
   if (!token || !["approved", "refused"].includes(decision)) {
-    return NextResponse.json({ error: "Parametres invalides" }, { status: 400 })
+    return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 })
   }
 
   const supabaseAdmin = getAdminClient()

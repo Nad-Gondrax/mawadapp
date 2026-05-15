@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { 
-  ChevronLeft, MapPin, Globe, BookOpen, Users, Heart, Pencil, Shield, 
+  ChevronLeft, MapPin, Globe, BookOpen, Users, Heart, Pencil, 
   GraduationCap, Briefcase, Ruler, Shirt, Home, Baby, Sparkles, CircleUserRound,
   HeartHandshake, Flame, MessageCircle, UserCheck, Loader2, PersonStanding, UserRound,
   Camera, Trash2, Eye, EyeOff, Lock, CheckCircle, XCircle
@@ -251,12 +251,12 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
     if (!file || !profile) return
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setPhotoError("Format non supporte. Utilisez JPEG, PNG ou WebP.")
+      setPhotoError("Format non supporté. Utilisez JPEG, PNG ou WebP.")
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setPhotoError("La photo ne doit pas depasser 5 MB.")
+      setPhotoError("La photo ne doit pas dépasser 5 MB.")
       return
     }
 
@@ -266,7 +266,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+      if (!user || user.id !== profile.id) throw new Error("Non autorisé")
 
       const ext = file.name.split(".").pop() || "jpg"
       const filePath = `${user.id}/avatar-${Date.now()}.${ext}`
@@ -306,7 +306,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+      if (!user || user.id !== profile.id) throw new Error("Non autorisé")
 
       const { data, error } = await supabase
         .from("profiles")
@@ -333,7 +333,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.id !== profile.id) throw new Error("Non autorise")
+      if (!user || user.id !== profile.id) throw new Error("Non autorisé")
 
       const { data, error } = await supabase
         .from("profiles")
@@ -487,7 +487,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
                 type="button"
                 onClick={handlePhotoDelete}
                 disabled={!profile.photo || photoSaving}
-                title={profile.photo ? "Supprimer la photo" : "Aucune photo personnelle a supprimer"}
+                title={profile.photo ? "Supprimer la photo" : "Aucune photo personnelle à supprimer"}
                 className={`flex items-center gap-1.5 px-3 py-2 bg-white/95 rounded-xl text-xs font-semibold shadow transition-colors ${
                   profile.photo
                     ? "text-destructive hover:bg-white"
@@ -506,17 +506,6 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
                 {profile.photo_blurred ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                 {profile.photo_blurred ? "Rendre visible" : "Flouter"}
               </button>
-            </div>
-          )}
-          {/* Mahram badge (pour les femmes) */}
-          {profile.genre === "femme" && (
-            <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow ${
-              profile.mahram_statut === "valide"
-                ? "bg-emerald-500 text-white"
-                : "bg-amber-500 text-white"
-            }`}>
-              <Shield className="w-3.5 h-3.5" />
-              {profile.mahram_statut === "valide" ? "Mahram valide" : "Mahram en attente"}
             </div>
           )}
         </div>
@@ -664,13 +653,13 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               />
               <InfoCard
                 icon={<Sparkles className="w-4 h-4" />}
-                label="Priere"
+                label="Prière"
                 value={profile.pratique_priere || "-"}
               />
             </div>
             {profile.relation_sexe_oppose && (
               <div className="mt-3 bg-card rounded-xl border border-border p-3">
-                <p className="text-xs text-muted-foreground">Relation avec le sexe oppose</p>
+                <p className="text-xs text-muted-foreground">Relation avec le sexe opposé</p>
                 <p className="text-sm font-medium text-foreground">{RELATION_SEXE_LABELS[profile.relation_sexe_oppose] || profile.relation_sexe_oppose}</p>
               </div>
             )}
@@ -720,7 +709,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {profile.accepte_divorce && (
                 <div className="bg-card rounded-xl border border-border p-3">
-                  <p className="text-xs text-muted-foreground">Accepte une personne divorcee</p>
+                  <p className="text-xs text-muted-foreground">Accepte une personne divorcée</p>
                   <p className="text-sm font-medium text-foreground">{ACCEPTE_LABELS[profile.accepte_divorce] || profile.accepte_divorce}</p>
                 </div>
               )}
@@ -738,7 +727,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
             <div className="grid grid-cols-2 gap-3">
               <InfoCard
                 icon={<GraduationCap className="w-4 h-4" />}
-                label="Etudes"
+                label="Études"
                 value={profile.niveau_etudes ? (NIVEAUX_ETUDES_LABELS[profile.niveau_etudes] || profile.niveau_etudes) + (profile.niveau_etudes_autre ? ` (${profile.niveau_etudes_autre})` : "") : "-"}
               />
               <InfoCard
@@ -767,7 +756,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
                 )}
                 {originesMere && (
                   <div className="bg-card rounded-xl border border-border p-3">
-                    <p className="text-xs text-muted-foreground">Origines de la mere</p>
+                    <p className="text-xs text-muted-foreground">Origines de la mère</p>
                     <p className="text-sm font-medium text-foreground">{originesMere}</p>
                   </div>
                 )}

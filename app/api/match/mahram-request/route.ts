@@ -20,7 +20,7 @@ async function sendMahramEmail(params: {
   const from = process.env.MAWADA_EMAIL_FROM
 
   if (!apiKey || !from) {
-    console.log("[Mawada] Email Mahram a envoyer", params)
+    console.log("[Mawada] Email Mahram à envoyer", params)
     return { sent: false, reason: "Email provider not configured" }
   }
 
@@ -37,16 +37,16 @@ async function sendMahramEmail(params: {
       text: [
         "Salam alaykoum,",
         "",
-        `Un match mutuel a ete detecte entre ${params.protectedName} et ${params.matchName}.`,
-        "Votre validation est requise avant toute discussion supervisee.",
+        `Un match mutuel a été détecté entre ${params.protectedName} et ${params.matchName}.`,
+        "Votre validation est requise avant toute discussion supervisée.",
         "",
         `Examiner et valider le match : ${params.approvalUrl}`,
       ].join("\n"),
       html: `
         <div style="font-family:Arial,sans-serif;color:#102a27;line-height:1.6">
           <p>Salam alaykoum,</p>
-          <p>Un match mutuel a ete detecte entre <strong>${params.protectedName}</strong> et <strong>${params.matchName}</strong>.</p>
-          <p>Votre validation est requise avant toute discussion supervisee.</p>
+          <p>Un match mutuel a été détecté entre <strong>${params.protectedName}</strong> et <strong>${params.matchName}</strong>.</p>
+          <p>Votre validation est requise avant toute discussion supervisée.</p>
           <p>
             <a href="${params.approvalUrl}" style="display:inline-block;background:#059669;color:white;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">
               Examiner et valider le match
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
 
     const supabaseAdmin = createAdminClient()
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
     const isParticipant = conversation.user_1_id === user.id || conversation.user_2_id === user.id
     if (!isParticipant) {
-      return NextResponse.json({ error: "Acces refuse" }, { status: 403 })
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
     }
 
     const participantIds = [conversation.user_1_id, conversation.user_2_id]
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       || profiles.find(profile => profile.mahram_email)
 
     if (!protectedProfile) {
-      return NextResponse.json({ error: "Profil protege introuvable" }, { status: 400 })
+      return NextResponse.json({ error: "Profil protégé introuvable" }, { status: 400 })
     }
 
     const matchProfile = profiles.find(profile => profile.id !== protectedProfile.id)
