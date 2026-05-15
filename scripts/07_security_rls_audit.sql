@@ -1,4 +1,4 @@
--- RLS audit helper for Mawada.
+-- RLS audit helper for Taym.
 -- Run after scripts/06_security_rls_hardening.sql.
 -- These IDs are the local test accounts used during development.
 -- Replace them if you want to test with other accounts.

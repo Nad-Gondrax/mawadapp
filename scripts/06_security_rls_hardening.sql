@@ -1,4 +1,4 @@
--- Security hardening for Mawada RLS.
+-- Security hardening for Taym RLS.
 -- Run this in the Supabase SQL editor after scripts 02, 03, 04 and 05.
 
 -- ---------------------------------------------------------------------------

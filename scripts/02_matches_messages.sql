@@ -1,4 +1,4 @@
--- Likes, matches and supervised conversations for Mawada.
+-- Likes, matches and supervised conversations for Taym.
 -- Run this in the Supabase SQL editor.
 
 create table if not exists public.likes (

@@ -17,10 +17,10 @@ async function sendMahramEmail(params: {
   approvalUrl: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.MAWADA_EMAIL_FROM
+  const from = (process.env.TAYM_EMAIL_FROM || process.env.MAWADA_EMAIL_FROM || "").replace(/^Mawada\b/, "Taym")
 
   if (!apiKey || !from) {
-    console.log("[Mawada] Email Mahram à envoyer", params)
+    console.log("[Taym] Email Mahram à envoyer", params)
     return { sent: false, reason: "Email provider not configured" }
   }
 
@@ -33,7 +33,7 @@ async function sendMahramEmail(params: {
     body: JSON.stringify({
       from,
       to: params.to,
-      subject: `Mawada - Validation d'un match pour ${params.protectedName}`,
+      subject: `Taym - Validation d'un match pour ${params.protectedName}`,
       text: [
         "Salam alaykoum,",
         "",

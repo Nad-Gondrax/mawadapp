@@ -146,8 +146,8 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
               </div>
               <div className="relative z-10">
                 <Image 
-                  src="/logo-mawada.png" 
-                  alt="Mawada" 
+                  src="/logo-taym.png" 
+                  alt="Taym" 
                   width={56} 
                   height={56}
                   className="mx-auto mb-4 brightness-0 invert"
@@ -156,7 +156,7 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
                   {mode === "register" ? "Créer un compte" : mode === "forgot" ? "Mot de passe oublié" : "Bon retour"}
                 </h2>
                 <p className="text-white/80 text-sm mt-1">
-                  {mode === "register" ? "Rejoignez la communauté Mawada" : mode === "forgot" ? "Recevez un lien de réinitialisation" : "Connectez-vous pour continuer"}
+                  {mode === "register" ? "Rejoignez la communauté Taym" : mode === "forgot" ? "Recevez un lien de réinitialisation" : "Connectez-vous pour continuer"}
                 </p>
               </div>
               <button 

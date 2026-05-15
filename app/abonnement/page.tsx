@@ -72,7 +72,7 @@ function AbonnementContent() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
             <Sparkles className="h-7 w-7 text-primary" />
           </div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">Abonnement Mawada</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">Abonnement Taym</p>
           <h1 className="mt-2 font-serif text-4xl font-bold text-foreground">Accédez aux rencontres sérieuses</h1>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
             Votre compte est prêt. L&apos;abonnement débloque la découverte, les matchs et les conversations supervisées.
@@ -96,7 +96,7 @@ function AbonnementContent() {
             <Check className="mx-auto mb-3 h-10 w-10 text-emerald-600" />
             <h2 className="font-serif text-2xl font-bold text-foreground">Abonnement actif</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Vous pouvez accéder à votre espace Mawada.
+              Vous pouvez accéder à votre espace Taym.
             </p>
             <button
               onClick={() => router.push("/dashboard")}

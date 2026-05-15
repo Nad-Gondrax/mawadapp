@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     try {
       const stripe = getStripe()
       const coupon = await stripe.coupons.create({
-        name: `Mawada ${code}`,
+        name: `Taym ${code}`,
         percent_off: discountType === "percent" ? discountValue : undefined,
         amount_off: discountType === "amount" ? Math.round(discountValue * 100) : undefined,
         currency: discountType === "amount" ? SUBSCRIPTION_CURRENCY : undefined,

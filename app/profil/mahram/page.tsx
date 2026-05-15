@@ -92,7 +92,7 @@ export default function MonMahramPage() {
           <h3 className="font-semibold text-foreground mb-2">Interface du mahram</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Il n&apos;y a pas de lien permanent vers l&apos;interface Mahram. Pour des raisons de sécurité,
-            Mawada envoie automatiquement un lien unique par email au Mahram quand un match mutuel doit être validé.
+            Taym envoie automatiquement un lien unique par email au Mahram quand un match mutuel doit être validé.
           </p>
         </div>
 

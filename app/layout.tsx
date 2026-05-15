@@ -15,9 +15,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Mawada — Mariage sérieux',
+  title: 'Taym — Mariage sérieux',
   description: 'Plateforme de rencontre halal pensée pour le mariage sérieux, avec supervision du mahram.',
-  keywords: ['mariage halal', 'rencontre halal', 'mawada', 'mahram'],
+  keywords: ['mariage halal', 'rencontre halal', 'taym', 'mahram'],
 }
 
 export const viewport: Viewport = {

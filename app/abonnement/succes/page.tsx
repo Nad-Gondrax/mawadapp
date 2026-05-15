@@ -48,7 +48,7 @@ function AbonnementSuccesContent() {
               <Check className="h-7 w-7 text-emerald-600" />
             </div>
             <h1 className="font-serif text-2xl font-bold text-foreground">Abonnement activé</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Bienvenue dans Mawada.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Bienvenue dans Taym.</p>
             <button
               onClick={() => router.push("/dashboard")}
               className="mt-6 w-full rounded-2xl bg-primary px-6 py-3 font-semibold text-white"

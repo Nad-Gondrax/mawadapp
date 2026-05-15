@@ -12,7 +12,7 @@ type ChallengePayload = {
 }
 
 function getSecret() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.RESEND_API_KEY || "mawada-dev-secret"
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.RESEND_API_KEY || "taym-dev-secret"
 }
 
 function hmac(value: string) {
@@ -65,7 +65,7 @@ function escapeHtml(value: string) {
 
 async function sendCodeEmail(email: string, relation: string, code: string) {
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.MAWADA_EMAIL_FROM
+  const from = (process.env.TAYM_EMAIL_FROM || process.env.MAWADA_EMAIL_FROM || "").replace(/^Mawada\b/, "Taym")
 
   if (!apiKey || !from) {
     return { sent: false, reason: "Email provider not configured" }
@@ -81,7 +81,7 @@ async function sendCodeEmail(email: string, relation: string, code: string) {
     body: JSON.stringify({
       from,
       to: email,
-      subject: "Mawada - Code de validation Mahram",
+      subject: "Taym - Code de validation Mahram",
       text: [
         "Salam alaykoum,",
         "",

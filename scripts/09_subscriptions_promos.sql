@@ -1,4 +1,4 @@
--- Subscriptions and promo codes for Mawada paid access.
+-- Subscriptions and promo codes for Taym paid access.
 -- Run this in the Supabase SQL editor.
 
 create table if not exists public.promo_codes (

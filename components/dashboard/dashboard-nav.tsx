@@ -98,8 +98,8 @@ export function DashboardSidebar() {
     <aside className="hidden lg:flex flex-col w-72 min-h-screen bg-white border-r border-border p-5 gap-1">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-3 px-3 py-4 mb-4">
-        <Image src="/logo-mawada.png" alt="Mawada" width={36} height={36} />
-        <span className="font-serif font-bold text-foreground text-xl">Mawada</span>
+        <Image src="/logo-taym.png" alt="Taym" width={36} height={36} />
+        <span className="font-serif font-bold text-foreground text-xl">Taym</span>
       </Link>
 
       <nav className="flex-1 space-y-1">

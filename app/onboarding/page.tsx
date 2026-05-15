@@ -1676,8 +1676,8 @@ export default function OnboardingPage() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-card/90 backdrop-blur border-b border-border">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <Image src="/logo-mawada.png" alt="Mawada" width={32} height={32} className="rounded-lg" />
-          <span className="font-serif font-bold text-foreground">Mawada</span>
+          <Image src="/logo-taym.png" alt="Taym" width={32} height={32} className="rounded-lg" />
+          <span className="font-serif font-bold text-foreground">Taym</span>
         </div>
       </header>
 

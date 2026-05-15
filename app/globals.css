@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Mawada Premium — Turquoise, Vert pétrole, Corail */
+  /* Taym Premium — Turquoise, Vert pétrole, Corail */
   --background: #F8FFFC;
   --foreground: #102A2A;
   --card: #FFFFFF;
@@ -39,7 +39,7 @@
   --sidebar-border: #D0E8E4;
   --sidebar-ring: #009688;
   
-  /* Custom Mawada colors */
+  /* Custom Taym colors */
   --mawada-turquoise: #009688;
   --mawada-petrol: #006B61;
   --mawada-coral: #FF6B6B;
@@ -123,7 +123,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   
-  /* Mawada custom colors for Tailwind */
+  /* Taym custom colors for Tailwind */
   --color-mawada-turquoise: var(--mawada-turquoise);
   --color-mawada-petrol: var(--mawada-petrol);
   --color-mawada-coral: var(--mawada-coral);

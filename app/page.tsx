@@ -52,12 +52,12 @@ const FEATURES = [
 const TESTIMONIALS = [
   {
     name: "Fatima & Ahmed",
-    text: "Grâce à Mawada, j'ai rencontré mon mari dans le respect de nos valeurs. Le système de supervision nous a permis de construire une relation saine.",
+    text: "Grâce à Taym, j'ai rencontré mon mari dans le respect de nos valeurs. Le système de supervision nous a permis de construire une relation saine.",
     city: "Paris",
   },
   {
     name: "Yasmine & Karim",
-    text: "L'approche sérieuse de Mawada nous a rassurés. Nous nous sommes mariés après 6 mois de discussions supervisées.",
+    text: "L'approche sérieuse de Taym nous a rassurés. Nous nous sommes mariés après 6 mois de discussions supervisées.",
     city: "Lyon",
   },
   {
@@ -89,13 +89,13 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-16 md:h-20">
             <Link href="/" className="flex items-center gap-2.5">
               <Image 
-                src="/logo-mawada.png" 
-                alt="Mawada" 
+                src="/logo-taym.png" 
+                alt="Taym" 
                 width={40} 
                 height={40} 
                 className="w-9 h-9 md:w-10 md:h-10"
               />
-              <span className="font-serif font-bold text-xl md:text-2xl text-foreground">Mawada</span>
+              <span className="font-serif font-bold text-xl md:text-2xl text-foreground">Taym</span>
             </Link>
             <div className="flex items-center gap-3">
               <button 
@@ -153,7 +153,7 @@ export default function LandingPage() {
                 variants={fadeInUp}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0"
               >
-                Mawada est la plateforme de rencontre sérieuse et respectueuse, 
+                Taym est la plateforme de rencontre sérieuse et respectueuse, 
                 conçue pour ceux qui cherchent une relation authentique vers le mariage.
               </motion.p>
               
@@ -295,7 +295,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4"
             >
-              Pourquoi choisir Mawada ?
+              Pourquoi choisir Taym ?
             </motion.h2>
             <motion.p 
               variants={fadeInUp}
@@ -416,7 +416,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="text-lg text-muted-foreground max-w-2xl mx-auto"
             >
-              Des témoignages de couples formés sur Mawada
+              Des témoignages de couples formés sur Taym
             </motion.p>
           </motion.div>
 
@@ -499,13 +499,13 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">
               <Image 
-                src="/logo-mawada.png" 
-                alt="Mawada" 
+                src="/logo-taym.png" 
+                alt="Taym" 
                 width={32} 
                 height={32}
                 className="brightness-0 invert"
               />
-              <span className="font-serif font-bold text-xl text-white">Mawada</span>
+              <span className="font-serif font-bold text-xl text-white">Taym</span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm">
               <Link href="#" className="hover:text-white transition-colors">À propos</Link>
@@ -513,7 +513,7 @@ export default function LandingPage() {
               <Link href="#" className="hover:text-white transition-colors">Conditions</Link>
               <Link href="#" className="hover:text-white transition-colors">Contact</Link>
             </div>
-            <p className="text-sm">© 2024 Mawada. Tous droits réservés.</p>
+            <p className="text-sm">© 2024 Taym. Tous droits réservés.</p>
           </div>
         </div>
       </footer>
