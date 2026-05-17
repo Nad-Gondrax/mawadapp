@@ -4,12 +4,17 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
+  const type = searchParams.get('type')
 
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/reinitialiser-mot-de-passe`)
+      }
+
       // Vérifier si l'onboarding est complété
       const { data: { user } } = await supabase.auth.getUser()
 

@@ -36,14 +36,15 @@ export function AuthModal({ open, onClose, defaultMode = "register" }: AuthModal
     setLoading(true)
     setError(null)
     setSuccess(null)
-    const supabase = createClient()
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+    const response = await fetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     })
 
-    if (error) {
-      setError(getUserFacingError(error, "passwordReset"))
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      setError(data?.error || getUserFacingError(null, "passwordReset"))
     } else {
       setSuccess("Un email de réinitialisation vous a été envoyé. Vérifiez votre boîte mail.")
     }
