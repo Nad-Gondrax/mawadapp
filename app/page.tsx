@@ -509,8 +509,9 @@ export default function LandingPage() {
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm">
               <Link href="#" className="hover:text-white transition-colors">À propos</Link>
-              <Link href="#" className="hover:text-white transition-colors">Confidentialité</Link>
-              <Link href="#" className="hover:text-white transition-colors">Conditions</Link>
+              <Link href="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
+              <Link href="/confidentialite" className="hover:text-white transition-colors">Confidentialité</Link>
+              <Link href="/cgu" className="hover:text-white transition-colors">CGU</Link>
               <Link href="#" className="hover:text-white transition-colors">Contact</Link>
             </div>
             <p className="text-sm">© 2024 Taym. Tous droits réservés.</p>

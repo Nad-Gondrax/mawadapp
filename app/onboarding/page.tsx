@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, Upload, Check, Mail, AlertCircle, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Upload, Check, Mail, AlertCircle, Loader2, Info } from "lucide-react"
 import { ALL_TRAITS, VILLES_FRANCE } from "@/lib/mock-data"
 import { createClient } from "@/lib/supabase/client"
 import { getUserFacingError } from "@/lib/user-facing-errors"
@@ -269,6 +269,14 @@ function Step1({ data, onChange, mahramValidated, onMahramValidate }: {
           <div className="flex items-center gap-2 text-primary">
             <Mail className="w-4 h-4" />
             <span className="text-sm font-semibold">Validation par votre Mahram</span>
+          </div>
+          <div className="flex gap-2 rounded-xl border border-primary/20 bg-background/70 p-3 text-xs leading-relaxed text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p>
+              Si vous n&apos;avez pas de Mahram, vous pouvez inviter une personne de confiance de votre entourage :
+              un proche, un tuteur, un membre de la famille ou toute personne sérieuse qui peut vous accompagner
+              dans votre démarche.
+            </p>
           </div>
           
           <div>
