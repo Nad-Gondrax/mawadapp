@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 import { ProfileCard } from "@/components/dashboard/profile-card"
-import { discoverProfiles, getLikedProfileIds, getMyProfile, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
+import { discoverProfiles, getLikedProfileIds, getMyProfile, getPhotoUnblurStatuses, getProfilesAvailability } from "@/lib/supabase-queries"
 import { mapDbProfile, type DbPublicProfile } from "@/lib/profile-mappers"
 import type { UserProfile } from "@/lib/types"
 
@@ -12,6 +12,8 @@ export default function NouveauxPage() {
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [likedProfileIds, setLikedProfileIds] = useState<string[]>([])
   const [photoAccessProfileIds, setPhotoAccessProfileIds] = useState<string[]>([])
+  const [unavailableProfileIds, setUnavailableProfileIds] = useState<string[]>([])
+  const [currentUserHasActiveMatch, setCurrentUserHasActiveMatch] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +33,10 @@ export default function NouveauxPage() {
 
         if (cancelled) return
         const discoveredProfiles = discovered as unknown as DbPublicProfile[]
-        const photoStatuses = await getPhotoUnblurStatuses(discoveredProfiles.map(profile => profile.id))
+        const [photoStatuses, availability] = await Promise.all([
+          getPhotoUnblurStatuses(discoveredProfiles.map(profile => profile.id)),
+          getProfilesAvailability(discoveredProfiles.map(profile => profile.id)),
+        ])
         if (cancelled) return
 
         setCurrentProfile(myProfile as DbPublicProfile)
@@ -42,6 +47,8 @@ export default function NouveauxPage() {
             .filter(profile => photoStatuses.get(profile.id) === "approved")
             .map(profile => profile.id),
         )
+        setUnavailableProfileIds(availability.activeProfileIds)
+        setCurrentUserHasActiveMatch(availability.currentUserHasActiveMatch)
       } catch {
         if (!cancelled) setError("Impossible de charger les nouveaux profils.")
       } finally {
@@ -92,6 +99,8 @@ export default function NouveauxPage() {
                 profile={profile}
                 initiallyLiked={likedProfileIds.includes(profile.id)}
                 photoAccessApproved={photoAccessProfileIds.includes(profile.id)}
+                matchUnavailable={unavailableProfileIds.includes(profile.id)}
+                currentUserHasActiveMatch={currentUserHasActiveMatch}
               />
             ))}
           </div>

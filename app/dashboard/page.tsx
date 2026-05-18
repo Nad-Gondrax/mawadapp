@@ -6,7 +6,16 @@ import { Bell, Filter, Loader2, X, Sparkles, Heart, MessageCircle } from "lucide
 import { useRouter } from "next/navigation"
 import { ProfileCard } from "@/components/dashboard/profile-card"
 import { FiltersModal, DEFAULT_FILTERS, type Filters } from "@/components/dashboard/filters-modal"
-import { discoverProfiles, getConversationThreads, getIncomingLikes, getLikedProfileIds, getMutualMatches, getMyProfile, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
+import {
+  discoverProfiles,
+  getConversationThreads,
+  getIncomingLikes,
+  getLikedProfileIds,
+  getMutualMatches,
+  getMyProfile,
+  getPhotoUnblurStatuses,
+  getProfilesAvailability,
+} from "@/lib/supabase-queries"
 import { mapDbProfile, type DbPublicProfile } from "@/lib/profile-mappers"
 import { getSavedPreferences, savePreferences } from "@/lib/preferences"
 import type { UserProfile } from "@/lib/types"
@@ -88,6 +97,8 @@ export default function DashboardPage() {
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([])
   const [notificationHistory, setNotificationHistory] = useState<NotificationItem[]>([])
   const [photoAccessProfileIds, setPhotoAccessProfileIds] = useState<string[]>([])
+  const [unavailableProfileIds, setUnavailableProfileIds] = useState<string[]>([])
+  const [currentUserHasActiveMatch, setCurrentUserHasActiveMatch] = useState(false)
   const [loadingProfiles, setLoadingProfiles] = useState(true)
   const [profilesError, setProfilesError] = useState<string | null>(null)
 
@@ -173,10 +184,11 @@ export default function DashboardPage() {
           withTimeout(getConversationThreads()),
           withTimeout(getSavedPreferences()),
           withTimeout(getPhotoUnblurStatuses(discoveredProfiles.map(profile => profile.id))),
+          withTimeout(getProfilesAvailability(discoveredProfiles.map(profile => profile.id))),
         ]).then(results => {
           if (cancelled) return
 
-          const [likedIds, receivedLikes, mutualMatches, conversationThreads, preferences, photoStatuses] = results
+          const [likedIds, receivedLikes, mutualMatches, conversationThreads, preferences, photoStatuses, availability] = results
 
           if (likedIds.status === "fulfilled") {
             setLikedProfileIds(likedIds.value)
@@ -207,6 +219,11 @@ export default function DashboardPage() {
                 .filter(profile => photoStatuses.value.get(profile.id) === "approved")
                 .map(profile => profile.id),
             )
+          }
+
+          if (availability.status === "fulfilled") {
+            setUnavailableProfileIds(availability.value.activeProfileIds)
+            setCurrentUserHasActiveMatch(availability.value.currentUserHasActiveMatch)
           }
         })
       } catch {
@@ -571,6 +588,15 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {currentUserHasActiveMatch && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="font-semibold text-amber-900">Un match est déjà en cours</p>
+            <p className="mt-1 leading-relaxed">
+              Pour garder un échange sérieux, Taym limite volontairement à une seule discussion active. Vous pouvez terminer le match depuis Messages si vous souhaitez matcher ailleurs.
+            </p>
+          </div>
+        )}
+
         {/* Grid */}
         {loadingProfiles ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -602,6 +628,8 @@ export default function DashboardPage() {
                 profile={p}
                 initiallyLiked={likedProfileIds.includes(p.id)}
                 photoAccessApproved={photoAccessProfileIds.includes(p.id)}
+                matchUnavailable={unavailableProfileIds.includes(p.id)}
+                currentUserHasActiveMatch={currentUserHasActiveMatch}
               />
             ))}
           </motion.div>

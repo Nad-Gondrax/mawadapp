@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Clock, MessageCircle, Shield } from "lucide-react"
+import { AlertTriangle, Clock, MessageCircle, Shield, XCircle } from "lucide-react"
 import { getConversationThreads, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
 
 type ConversationThread = Awaited<ReturnType<typeof getConversationThreads>>[number]
@@ -106,7 +106,8 @@ export default function MessagesPage() {
 
         {!loading && !error && threads.map(thread => {
           const { conversation, partner, lastMessage } = thread
-          const approved = conversation.mahram_status === "approved"
+          const ended = conversation.status === "archived"
+          const approved = conversation.mahram_status === "approved" && !ended
           const refused = conversation.mahram_status === "refused"
           const photoHidden = Boolean(partner.photo_blurred) && !photoAccessProfileIds.includes(partner.id)
           const unread = isThreadUnread(thread)
@@ -127,9 +128,11 @@ export default function MessagesPage() {
                   {partner.photo && <img src={partner.photo} alt={partner.prenom} className={`w-full h-full object-cover ${photoHidden ? "blur-sm scale-105" : ""}`} />}
                 </div>
                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-card flex items-center justify-center ${
-                  approved ? "bg-emerald-500" : refused ? "bg-red-500" : "bg-amber-500"
+                  ended ? "bg-slate-500" : approved ? "bg-emerald-500" : refused ? "bg-red-500" : "bg-amber-500"
                 }`}>
-                  {approved ? (
+                  {ended ? (
+                    <XCircle className="w-2.5 h-2.5 text-white" />
+                  ) : approved ? (
                     <Shield className="w-2.5 h-2.5 text-white" />
                   ) : (
                     <Clock className="w-2.5 h-2.5 text-white" />
@@ -149,10 +152,15 @@ export default function MessagesPage() {
                   </span>
                 </div>
                 <p className={`text-sm truncate mt-0.5 ${unread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                  {lastMessage?.content || "Match créé. Demande envoyée au Mahram."}
+                  {ended ? "Match terminé." : lastMessage?.content || "Match créé. Demande envoyée au Mahram."}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
-                  {approved ? (
+                  {ended ? (
+                    <>
+                      <XCircle className="w-3 h-3 text-slate-500" />
+                      <span className="text-xs text-slate-600 font-medium">Match terminé</span>
+                    </>
+                  ) : approved ? (
                     <>
                       <Shield className="w-3 h-3 text-emerald-500" />
                       <span className="text-xs text-emerald-600 font-medium">Échange autorisé</span>

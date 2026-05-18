@@ -42,6 +42,18 @@ export function getUserFacingError(error: unknown, context: ErrorContext) {
     return "Connexion au serveur impossible. Vérifiez internet puis réessayez."
   }
 
+  if (message.includes("active_match_lock_self")) {
+    return "Vous avez déjà un match en cours. Terminez ce match avant d'en créer un autre."
+  }
+
+  if (message.includes("active_match_lock_target")) {
+    return "Ce profil est déjà en match. Il pourra recevoir une nouvelle demande quand son match sera terminé."
+  }
+
+  if (message.includes("active_match_lock")) {
+    return "Un match actif existe déjà. Un seul échange est possible à la fois."
+  }
+
   if (context === "preferences" && (message.includes("user_preferences") || message.includes("05_user_preferences"))) {
     return "Les préférences ne sont pas encore installées dans Supabase. Lancez le script 05_user_preferences.sql."
   }

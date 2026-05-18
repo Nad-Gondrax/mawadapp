@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { MapPin, Globe, BookOpen, Heart, X } from "lucide-react"
+import { MapPin, Globe, BookOpen, Heart, X, Lock } from "lucide-react"
 import type { UserProfile } from "@/lib/types"
 import { NIVEAUX_PRATIQUE_LABELS, PROJET_MARIAGE_LABELS } from "@/lib/mock-data"
 import { addLike } from "@/lib/supabase-queries"
@@ -90,9 +90,17 @@ interface ProfileCardProps {
   showFullInfo?: boolean
   initiallyLiked?: boolean
   photoAccessApproved?: boolean
+  matchUnavailable?: boolean
+  currentUserHasActiveMatch?: boolean
 }
 
-export function ProfileCard({ profile, initiallyLiked = false, photoAccessApproved = false }: ProfileCardProps) {
+export function ProfileCard({
+  profile,
+  initiallyLiked = false,
+  photoAccessApproved = false,
+  matchUnavailable = false,
+  currentUserHasActiveMatch = false,
+}: ProfileCardProps) {
   const [showLikeModal, setShowLikeModal] = useState(false)
   const [liked, setLiked] = useState(initiallyLiked)
   const [likeSaving, setLikeSaving] = useState(false)
@@ -102,6 +110,10 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
   const router = useRouter()
 
   const photoHidden = Boolean(profile.photoBlurred) && !photoAccessApproved
+  const likeBlocked = currentUserHasActiveMatch || matchUnavailable
+  const likeBlockedMessage = currentUserHasActiveMatch
+    ? "Vous avez déjà un match actif. Terminez-le avant de matcher avec une autre personne."
+    : "Ce profil est déjà en match. Il sera à nouveau disponible si ce match se termine."
 
   useEffect(() => {
     setLiked(initiallyLiked)
@@ -174,6 +186,15 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
               <span className="text-xs font-bold text-primary">87% compatible</span>
             </div>
           </div>
+
+          {matchUnavailable && (
+            <div className="absolute top-3 right-3">
+              <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-xs font-bold text-amber-700">En match</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -217,15 +238,24 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setShowLikeModal(true)}
+              onClick={() => {
+                if (!likeBlocked) setShowLikeModal(true)
+              }}
+              disabled={likeBlocked}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all ${
-                liked
+                likeBlocked
+                  ? "bg-slate-100 text-muted-foreground cursor-not-allowed"
+                  : liked
                   ? "bg-[#FF6B6B]/10 text-[#FF6B6B] border-2 border-[#FF6B6B]/30"
                   : "bg-[#FF6B6B] text-white hover:bg-[#FF6B6B]/90 shadow-lg shadow-[#FF6B6B]/25"
               }`}
             >
-              <Heart className={`w-4 h-4 ${liked ? "fill-[#FF6B6B]" : ""}`} />
-              {liked ? "Liké !" : "J'aime"}
+              {likeBlocked ? (
+                <Lock className="w-4 h-4" />
+              ) : (
+                <Heart className={`w-4 h-4 ${liked ? "fill-[#FF6B6B]" : ""}`} />
+              )}
+              {likeBlocked ? "En match" : liked ? "Liké !" : "J'aime"}
             </motion.button>
             
             <motion.button
@@ -237,6 +267,12 @@ export function ProfileCard({ profile, initiallyLiked = false, photoAccessApprov
               Voir le profil
             </motion.button>
           </div>
+
+          {likeBlocked && (
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              {likeBlockedMessage}
+            </p>
+          )}
         </div>
       </motion.div>
 

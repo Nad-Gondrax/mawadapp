@@ -103,6 +103,30 @@ export async function discoverProfiles(filters?: {
 }
 
 // ─────────────────────────────────────────────
+// Disponibilité match — un seul match actif à la fois
+// ─────────────────────────────────────────────
+
+export type ProfilesAvailability = {
+  activeProfileIds: string[]
+  currentUserHasActiveMatch: boolean
+  currentActiveConversationId: string | null
+}
+
+export async function getProfilesAvailability(profileIds: string[]) {
+  const response = await fetch('/api/profiles/availability', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profileIds }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+
+  return response.json() as Promise<ProfilesAvailability>
+}
+
+// ─────────────────────────────────────────────
 // Likes
 // ─────────────────────────────────────────────
 
@@ -110,6 +134,14 @@ export async function addLike(toUserId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non authentifié')
+
+  const availability = await getProfilesAvailability([toUserId])
+  if (availability.currentUserHasActiveMatch) {
+    throw new Error('active_match_lock_self')
+  }
+  if (availability.activeProfileIds.includes(toUserId)) {
+    throw new Error('active_match_lock_target')
+  }
 
   const { data: existing, error: existingError } = await supabase
     .from('likes')
@@ -226,37 +258,17 @@ export async function getIncomingLikes() {
 }
 
 export async function ensureConversation(otherUserId: string) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non authentifié')
+  const response = await fetch('/api/conversations/ensure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ otherUserId }),
+  })
 
-  const [user1, user2] = [user.id, otherUserId].sort()
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
 
-  const { data: existing, error: findError } = await supabase
-    .from('conversations')
-    .select('*')
-    .or(
-      `and(user_1_id.eq.${user1},user_2_id.eq.${user2}),` +
-      `and(user_1_id.eq.${user2},user_2_id.eq.${user1})`,
-    )
-    .maybeSingle()
-
-  if (findError) throw findError
-  if (existing) return existing
-
-  const { data, error } = await supabase
-    .from('conversations')
-    .insert({
-      user_1_id: user1,
-      user_2_id: user2,
-      mahram_status: 'pending',
-      status: 'active',
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  return data
+  return response.json()
 }
 
 export async function createMahramMatchRequest(conversationId: string) {
@@ -331,7 +343,9 @@ export async function getMutualMatches() {
     )
 
     return { ...match, profile, conversation }
-  }).filter((match): match is typeof match & { profile: DbPublicProfile } => Boolean(match.profile))
+  }).filter((match): match is typeof match & { profile: DbPublicProfile } =>
+    Boolean(match.profile) && match.conversation?.status !== 'archived',
+  )
 }
 
 // ─────────────────────────────────────────────
@@ -459,6 +473,52 @@ export async function getMessages(conversationId: string) {
 
   if (error) throw error
   return data
+}
+
+export type ConversationProgress = {
+  conversation: {
+    id: string
+    status: 'active' | 'blocked' | 'archived'
+    mahram_status: 'pending' | 'approved' | 'refused'
+    user_1_go_further_at: string | null
+    user_2_go_further_at: string | null
+    mahram_contacts_revealed_at: string | null
+    ended_at: string | null
+    ended_by: string | null
+  }
+  currentUserReady: boolean
+  partnerReady: boolean
+  bothReady: boolean
+  mahramContact: {
+    nom: string
+    relation: string
+    email: string
+    telephone: string
+  } | null
+}
+
+export async function getConversationProgress(conversationId: string) {
+  const response = await fetch(`/api/conversations/${conversationId}/progress`)
+
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+
+  return response.json() as Promise<ConversationProgress>
+}
+
+export async function updateConversationProgress(conversationId: string, action: 'go_further' | 'end_match') {
+  const response = await fetch(`/api/conversations/${conversationId}/progress`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+
+  return response.json() as Promise<ConversationProgress>
 }
 
 // ─────────────────────────────────────────────

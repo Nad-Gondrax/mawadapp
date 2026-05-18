@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Shield, Heart, MessageCircle, Clock, CheckCircle, Loader2, Sparkles, XCircle } from "lucide-react"
-import { addLike, getIncomingLikes, getMutualMatches, getPhotoUnblurStatuses } from "@/lib/supabase-queries"
+import { addLike, getIncomingLikes, getMutualMatches, getPhotoUnblurStatuses, updateConversationProgress } from "@/lib/supabase-queries"
 import { mapDbProfile, type DbPublicProfile } from "@/lib/profile-mappers"
 import { getUserFacingError } from "@/lib/user-facing-errors"
 import type { UserProfile } from "@/lib/types"
@@ -14,6 +14,7 @@ type MatchRow = {
   profile: DbPublicProfile
   conversation?: {
     id: string
+    status?: "active" | "blocked" | "archived"
     mahram_status: "pending" | "approved" | "refused"
   } | null
 }
@@ -37,6 +38,8 @@ export default function MatchsPage() {
   const [error, setError] = useState<string | null>(null)
   const [likeBackSavingId, setLikeBackSavingId] = useState<string | null>(null)
   const [likeBackError, setLikeBackError] = useState<string | null>(null)
+  const [endingMatchId, setEndingMatchId] = useState<string | null>(null)
+  const [matchActionError, setMatchActionError] = useState<string | null>(null)
 
   const hydrateRows = async (matchRows: MatchRow[], incomingRows: IncomingLikeRow[]) => {
     const photoStatuses = await getPhotoUnblurStatuses([
@@ -107,6 +110,30 @@ export default function MatchsPage() {
     }
   }
 
+  const handleEndMatch = async (conversationId: string) => {
+    const confirmed = window.confirm(
+      "Terminer ce match ? La discussion sera fermée et vous pourrez matcher avec une autre personne.",
+    )
+    if (!confirmed) return
+
+    setEndingMatchId(conversationId)
+    setMatchActionError(null)
+
+    try {
+      await updateConversationProgress(conversationId, "end_match")
+      const [mutualMatches, receivedLikes] = await Promise.all([
+        getMutualMatches(),
+        getIncomingLikes(),
+      ])
+
+      await hydrateRows(mutualMatches as unknown as MatchRow[], receivedLikes as IncomingLikeRow[])
+    } catch {
+      setMatchActionError("Impossible de terminer ce match pour le moment.")
+    } finally {
+      setEndingMatchId(null)
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border px-4 py-3">
@@ -138,6 +165,24 @@ export default function MatchsPage() {
           </div>
         ) : (
           <>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <Shield className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Un seul match actif à la fois</p>
+                  <p className="text-sm text-amber-800 mt-1 leading-relaxed">
+                    Pour garder une démarche sérieuse, vous pouvez échanger avec une seule personne. Terminez le match si vous souhaitez ouvrir une autre mise en relation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {matchActionError && (
+              <p className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {matchActionError}
+              </p>
+            )}
+
             {incomingLikes.length > 0 && (
               <section className="space-y-3">
                 <div>
@@ -281,6 +326,20 @@ export default function MatchsPage() {
                                 <Shield className="w-3.5 h-3.5" />
                                 En attente du Mahram
                               </div>
+                            )}
+                            {match.conversation?.id && mahramStatus !== "refused" && (
+                              <button
+                                onClick={() => handleEndMatch(match.conversation!.id)}
+                                disabled={endingMatchId === match.conversation.id}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors disabled:opacity-60"
+                              >
+                                {endingMatchId === match.conversation.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <XCircle className="w-3.5 h-3.5" />
+                                )}
+                                Fin du match
+                              </button>
                             )}
                           </div>
                         </div>

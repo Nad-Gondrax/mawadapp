@@ -9,7 +9,7 @@ import {
   Camera, Trash2, Eye, EyeOff, Lock, CheckCircle, XCircle
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { addLike } from "@/lib/supabase-queries"
+import { addLike, getProfilesAvailability } from "@/lib/supabase-queries"
 import { getUserFacingError } from "@/lib/user-facing-errors"
 import {
   NIVEAUX_PRATIQUE_LABELS, NIVEAUX_ETUDES_LABELS,
@@ -123,6 +123,8 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
   const [likeError, setLikeError] = useState<string | null>(null)
   const [matched, setMatched] = useState(false)
   const [matchWarning, setMatchWarning] = useState<string | null>(null)
+  const [profileUnavailable, setProfileUnavailable] = useState(false)
+  const [currentUserHasActiveMatch, setCurrentUserHasActiveMatch] = useState(false)
   const [photoRequestStatus, setPhotoRequestStatus] = useState<PhotoUnblurStatus | null>(null)
   const [incomingPhotoRequests, setIncomingPhotoRequests] = useState<IncomingPhotoRequest[]>([])
   const [photoPrivacySaving, setPhotoPrivacySaving] = useState(false)
@@ -139,6 +141,8 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
       if (id === "me" && user) {
         setIsMe(true)
         setLiked(false)
+        setProfileUnavailable(false)
+        setCurrentUserHasActiveMatch(false)
         // Charger son propre profil complet depuis profiles
         const { data } = await supabase
           .from("profiles")
@@ -159,7 +163,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
         setIsMe(viewingOwnProfile)
 
         if (user && !viewingOwnProfile) {
-          const [likeResponse, photoRequestResponse] = await Promise.all([
+          const [likeResponse, photoRequestResponse, availabilityResponse] = await Promise.all([
             supabase
               .from("likes")
               .select("id")
@@ -172,13 +176,18 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               .eq("requester_id", user.id)
               .eq("requested_user_id", id)
               .maybeSingle(),
+            getProfilesAvailability([id]).catch(() => null),
           ])
 
           setLiked(Boolean(likeResponse.data))
           setPhotoRequestStatus((photoRequestResponse.data?.status as PhotoUnblurStatus | undefined) || null)
+          setProfileUnavailable(Boolean(availabilityResponse?.activeProfileIds.includes(id)))
+          setCurrentUserHasActiveMatch(Boolean(availabilityResponse?.currentUserHasActiveMatch))
         } else {
           setLiked(false)
           setPhotoRequestStatus(null)
+          setProfileUnavailable(false)
+          setCurrentUserHasActiveMatch(false)
         }
       }
       setLoading(false)
@@ -400,7 +409,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
   }
 
   const handleLike = async () => {
-    if (!profile || isMe || liked) return
+    if (!profile || isMe || liked || profileUnavailable || currentUserHasActiveMatch) return
 
     setLikeSaving(true)
     setLikeError(null)
@@ -423,6 +432,10 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
 
   const hasPhotoAccess = isMe || !profile.photo_blurred || photoRequestStatus === "approved"
   const shouldBlurProfilePhoto = Boolean(profile.photo_blurred) && !hasPhotoAccess
+  const likeBlocked = !isMe && (profileUnavailable || currentUserHasActiveMatch)
+  const likeBlockedMessage = currentUserHasActiveMatch
+    ? "Vous avez déjà un match actif. Terminez-le avant de matcher avec une autre personne."
+    : "Ce profil est déjà en match. Il sera à nouveau disponible si ce match se termine."
 
   return (
     <div className="min-h-screen bg-background">
@@ -573,22 +586,28 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
               <button
                 type="button"
                 onClick={handleLike}
-                disabled={liked || likeSaving}
+                disabled={liked || likeSaving || likeBlocked}
                 className={`w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg transition-all disabled:opacity-80 ${
-                  liked
+                  likeBlocked
+                    ? "bg-slate-100 text-muted-foreground shadow-none"
+                    : liked
                     ? "border-2 border-[#FF6B6B]/30 bg-[#FF6B6B]/10 text-[#FF6B6B] shadow-none"
                     : "bg-[#FF6B6B] text-white shadow-[#FF6B6B]/20 hover:bg-[#FF6B6B]/90"
                 }`}
               >
                 {likeSaving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : likeBlocked ? (
+                  <Lock className="w-4 h-4" />
                 ) : (
                   <Heart className={`w-4 h-4 ${liked ? "fill-[#FF6B6B]" : ""}`} />
                 )}
-                {liked ? "Profil liké" : "J'aime ce profil"}
+                {likeBlocked ? "Match en cours" : liked ? "Profil liké" : "J'aime ce profil"}
               </button>
               <p className="text-center text-xs text-muted-foreground">
-                Si la personne vous like aussi, vous pourrez échanger, sous supervision du Mahram.
+                {likeBlocked
+                  ? likeBlockedMessage
+                  : "Si la personne vous like aussi, vous pourrez échanger, sous supervision du Mahram."}
               </p>
               {likeError && (
                 <p className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
