@@ -180,13 +180,6 @@ export function ProfileCard({
             </span>
           </div>
 
-          {/* Compatibility score */}
-          <div className="absolute top-3 left-3">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm">
-              <span className="text-xs font-bold text-primary">87% compatible</span>
-            </div>
-          </div>
-
           {matchUnavailable && (
             <div className="absolute top-3 right-3">
               <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm flex items-center gap-1.5">

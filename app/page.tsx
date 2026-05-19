@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Shield, Heart, Users, MessageCircle, Star, ArrowRight, Sparkles, CheckCircle } from "lucide-react"
+import { Shield, Heart, Users, Star, ArrowRight, Sparkles, CheckCircle } from "lucide-react"
 import { AuthModal } from "@/components/auth/auth-modal"
 
 const fadeInUp = {
@@ -25,27 +25,21 @@ const scaleIn = {
 const FEATURES = [
   {
     icon: Users,
-    title: "Profils sérieux",
-    description: "Chaque profil est vérifié et orienté vers un projet de mariage sincère.",
+    title: "Pas de swipe compulsif",
+    description: "Ici, on ne collectionne pas les conversations. On ne joue pas avec les cœurs. Taym s’adresse aux musulmans et musulmanes qui savent ce qu’ils veulent : faire connaissance avec respect, avec pudeur, et avec une vraie intention de mariage.",
     color: "primary"
   },
   {
     icon: Heart,
-    title: "Matching intelligent",
-    description: "Notre algorithme met en avant la compatibilité selon vos valeurs.",
+    title: "Un cadre éthique et rassurant",
+    description: "Taym vous permet d’échanger dans un environnement sain, pensé pour préserver la pudeur et le respect de chacun. Ici, tout est conçu pour avancer sans malaise ni ambiguïté.",
     color: "coral"
   },
   {
     icon: Shield,
-    title: "Supervision du Mahram",
-    description: "Aucune discussion sans accord préalable du tuteur légal.",
+    title: "Le Mahram intégré au parcours",
+    description: "Pour une appli halal, il faut un cadre sérieux. Taym permet d’intégrer le Mahram naturellement, pour avancer avec confiance, transparence et respect.",
     color: "success"
-  },
-  {
-    icon: MessageCircle,
-    title: "Discussion supervisée",
-    description: "Chaque échange est encadré à trois pour votre sérénité.",
-    color: "primary"
   },
 ]
 
@@ -57,7 +51,7 @@ const TESTIMONIALS = [
   },
   {
     name: "Yasmine & Karim",
-    text: "L'approche sérieuse de Taym nous a rassurés. Nous nous sommes mariés après 6 mois de discussions supervisées.",
+    text: "L'approche sérieuse de Taym nous a rassurés. Nous nous sommes mariés après 2 mois d’échanges supervisés.",
     city: "Lyon",
   },
   {
@@ -145,16 +139,16 @@ export default function LandingPage() {
                 variants={fadeInUp}
                 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6"
               >
-                Rencontrez quelqu&apos;un qui vous{" "}
-                <span className="text-primary">correspond vraiment</span>
+                Le 1er site de rencontre pour célibataires musulmans{" "}
+                <span className="text-primary">exigeants</span>
               </motion.h1>
               
               <motion.p 
                 variants={fadeInUp}
                 className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0"
               >
-                Taym est la plateforme de rencontre sérieuse et respectueuse, 
-                conçue pour ceux qui cherchent une relation authentique vers le mariage.
+                Taym c’est la garantie d’une rencontre sérieuse, dans un cadre respectueux de nos valeurs,
+                sans perdre votre temps, sans ambiguïté, et avec le Mahram ou tuteur.
               </motion.p>
               
               <motion.div 
@@ -167,7 +161,7 @@ export default function LandingPage() {
                   onClick={() => openAuth("register")}
                   className="group inline-flex items-center justify-center gap-2 px-8 py-4 gradient-mawada text-white text-lg font-semibold rounded-full shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 transition-all"
                 >
-                  Commencer gratuitement
+                  M&apos;inscrire
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
                 <motion.button 
@@ -311,7 +305,7 @@ export default function LandingPage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
-            className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid md:grid-cols-3 gap-6"
           >
             {FEATURES.map((feature, index) => (
               <motion.div

@@ -430,8 +430,8 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
-  const hasPhotoAccess = isMe || !profile.photo_blurred || photoRequestStatus === "approved"
-  const shouldBlurProfilePhoto = Boolean(profile.photo_blurred) && !hasPhotoAccess
+  const hasPhotoAccess = !profile.photo_blurred || photoRequestStatus === "approved"
+  const shouldBlurProfilePhoto = Boolean(profile.photo_blurred) && (isMe || !hasPhotoAccess)
   const likeBlocked = !isMe && (profileUnavailable || currentUserHasActiveMatch)
   const likeBlockedMessage = currentUserHasActiveMatch
     ? "Vous avez déjà un match actif. Terminez-le avant de matcher avec une autre personne."
@@ -481,7 +481,7 @@ export default function ProfilPage({ params }: { params: Promise<{ id: string }>
           {shouldBlurProfilePhoto && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#102A2A]/10">
               <div className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-foreground shadow">
-                Photo privée
+                {isMe ? "Photo floutée" : "Photo privée"}
               </div>
             </div>
           )}
