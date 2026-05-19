@@ -43,6 +43,13 @@ const FEATURES = [
   },
 ]
 
+const IMAM_AVATARS = [
+  "/imams/imam-1.png",
+  "/imams/imam-2.png",
+  "/imams/imam-3.png",
+  "/imams/imam-4.png",
+]
+
 const TESTIMONIALS = [
   {
     name: "Fatima & Ahmed",
@@ -179,12 +186,18 @@ export default function LandingPage() {
                 className="flex items-center justify-center lg:justify-start gap-6 mt-10"
               >
                 <div className="flex -space-x-3">
-                  {[1, 2, 3, 4].map((i) => (
+                  {IMAM_AVATARS.map((src, index) => (
                     <div 
-                      key={i} 
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/50 border-2 border-white flex items-center justify-center shadow-sm"
+                      key={src} 
+                      className="relative w-10 h-10 overflow-hidden rounded-full border-2 border-white bg-primary/10 shadow-sm"
                     >
-                      <span className="text-xs font-bold text-primary">{i}</span>
+                      <Image
+                        src={src}
+                        alt={`Imam recommandé ${index + 1}`}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
                     </div>
                   ))}
                 </div>
@@ -194,7 +207,7 @@ export default function LandingPage() {
                       <Star key={i} className="w-4 h-4 fill-[#FFB800] text-[#FFB800]" />
                     ))}
                   </div>
-                  <p className="text-sm text-muted-foreground">+2000 mariages réussis</p>
+                  <p className="text-sm text-muted-foreground">Recommandé par des imams reconnus</p>
                 </div>
               </motion.div>
             </motion.div>
